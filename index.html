@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuickDeal · New deal</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!--
+    QuickDeal v3 — single-page vertical wizard
+    Flow: Customer → Location → Deal type (parent + subtype) → Vehicle → Submit
+    Synthetic data shaped after Tower's real distributions.
+  -->
+
+  <style>
+    :root {
+      /* palette */
+      --bg: #fafbfc;
+      --surface: #ffffff;
+      --surface-2: #f7f8fa;
+      --surface-3: #f1f3f6;
+      --border: #e8eaed;
+      --border-strong: #d4d7dc;
+      --border-active: #5e6ad2;
+      --text: #0f1419;
+      --text-soft: #404550;
+      --text-muted: #6b7280;
+      --text-faint: #9aa0aa;
+      --primary: #5e6ad2;
+      --primary-hover: #4754b8;
+      --primary-soft: #eef0fb;
+      --primary-tint: #f6f7fd;
+      --success: #137250;
+      --success-soft: #ecfdf5;
+      --warn: #92400e;
+      --warn-soft: #fef3c7;
+      --danger: #b42318;
+      --danger-soft: #fee4e2;
+      --accent-tlc: #0e7490;
+      --accent-tlc-soft: #ecfeff;
+      --accent-hyb: #047857;
+      --accent-hyb-soft: #ecfdf5;
+      --accent-purple: #6b21a8;
+      --accent-purple-soft: #faf5ff;
+
+      /* shape & motion */
+      --radius-sm: 6px;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow-1: 0 1px 2px rgba(15,20,25,.04);
+      --shadow-2: 0 1px 2px rgba(15,20,25,.04), 0 4px 12px rgba(15,20,25,.04);
+      --shadow-3: 0 4px 24px rgba(15,20,25,.06), 0 1px 2px rgba(15,20,25,.04);
+      --ease: cubic-bezier(.22,.61,.36,1);
+      --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px; line-height: 1.5; color: var(--text); background: var(--bg);
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      letter-spacing: -0.005em;
+    }
+
+    /* ---------- App chrome ---------- */
+    .app-bar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(180%) blur(8px);
+    }
+    .app-bar .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .app-bar .brand .mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--primary), #7d8aff);
+      display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px;
+      box-shadow: 0 2px 8px rgba(94,106,210,.3);
+    }
+    .app-bar .crumbs { font-size: 13px; color: var(--text-muted); }
+    .app-bar .crumbs strong { color: var(--text); font-weight: 500; }
+    .app-bar .user { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); }
+    .app-bar .avatar {
+      width: 26px; height: 26px; border-radius: 50%; background: #ddd6fe; color: #5b21b6;
+      display: grid; place-items: center; font-weight: 600; font-size: 11px;
+    }
+
+    .shell { max-width: 880px; margin: 32px auto; padding: 0 24px; }
+
+    .page-h {
+      display: flex; align-items: baseline; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .page-h h1 {
+      font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin: 0;
+    }
+    .page-h .meta { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .page-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+
+    .demo-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10.5px; font-weight: 500; padding: 2px 7px; border-radius: 3px;
+      background: var(--surface-3); color: var(--text-muted);
+      letter-spacing: 0.02em; text-transform: uppercase;
+    }
+    .demo-tag::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); }
+
+    /* ---------- Sections ---------- */
+    .stack { display: flex; flex-direction: column; gap: 12px; }
+
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: box-shadow .25s var(--ease), border-color .25s var(--ease), opacity .25s var(--ease);
+      overflow: hidden;
+    }
+    .section.is-active {
+      box-shadow: var(--shadow-3);
+      border-color: var(--border-strong);
+    }
+    .section.is-pending { opacity: .55; }
+    .section.is-pending .section-body { display: none; }
+
+    .section-head {
+      display: grid; grid-template-columns: 32px 1fr auto; gap: 14px;
+      align-items: center; padding: 18px 22px;
+      cursor: default;
+    }
+    .section.is-complete:not(.is-active) .section-head { cursor: pointer; }
+    .section.is-complete:not(.is-active) .section-head:hover { background: var(--surface-2); }
+
+    .step-num {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: var(--surface-3); color: var(--text-muted);
+      display: grid; place-items: center; font-weight: 600; font-size: 13px;
+      transition: all .2s var(--ease);
+    }
+    .section.is-active .step-num {
+      background: var(--primary); color: #fff;
+      box-shadow: 0 2px 8px rgba(94,106,210,.3);
+    }
+    .section.is-complete .step-num {
+      background: var(--success-soft); color: var(--success);
+    }
+    .section.is-complete .step-num::before { content: '✓'; }
+    .section.is-complete .step-num .n { display: none; }
+
+    .step-title {
+      display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    }
+    .step-title h3 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+    .step-title .step-sub { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+
+    .summary-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface-3); padding: 5px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 500; color: var(--text-soft);
+      max-width: 100%;
+    }
+
+    .edit-link {
+      font-size: 13px; color: var(--primary); cursor: pointer;
+      font-weight: 500; padding: 4px 10px; border-radius: 6px;
+      transition: background .15s var(--ease);
+      user-select: none;
+    }
+    .edit-link:hover { background: var(--primary-soft); }
+
+    .section-body {
+      padding: 4px 22px 22px;
+      animation: revealIn .25s var(--ease);
+    }
+    @keyframes revealIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+
+    /* ---------- Form atoms ---------- */
+    label.field-label {
+      display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+    input, select, textarea {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+      font: inherit; background: var(--surface); color: var(--text);
+      transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(94,106,210,.3);
+    }
+    input::placeholder { color: var(--text-faint); }
+
+    button.btn {
+      padding: 10px 16px; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+      font: inherit; font-weight: 500; font-size: 14px;
+      transition: background .15s var(--ease), box-shadow .15s var(--ease), transform .05s;
+    }
+    button.btn:active { transform: translateY(1px); }
+    button.btn.primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(15,20,25,.08); }
+    button.btn.primary:hover { background: var(--primary-hover); }
+    button.btn.ghost { background: transparent; color: var(--text-soft); border: 1px solid var(--border-strong); }
+    button.btn.ghost:hover { background: var(--surface-2); }
+    button.btn.subtle { background: var(--surface-3); color: var(--text-soft); }
+    button.btn.subtle:hover { background: var(--border); }
+    button.btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    /* Tertiary text link — for de-emphasized secondary actions */
+    button.text-link {
+      background: none; border: 0; padding: 8px 4px;
+      color: var(--primary); cursor: pointer; font: inherit;
+      font-size: 13px; font-weight: 500; border-radius: 4px;
+      text-decoration: underline; text-decoration-thickness: 1px;
+      text-underline-offset: 3px; transition: color .15s var(--ease);
+    }
+    button.text-link:hover { color: var(--primary-hover); }
+    button.text-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(94,106,210,.3); }
+
+    /* ---------- Pills (location, etc) ---------- */
+    .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill {
+      padding: 8px 14px; background: var(--surface); color: var(--text-soft);
+      border: 1px solid var(--border-strong); border-radius: 999px;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: all .15s var(--ease); user-select: none;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .pill:hover { border-color: var(--primary); color: var(--text); }
+    .pill.active {
+      background: var(--primary); color: #fff; border-color: var(--primary);
+      box-shadow: 0 2px 8px rgba(94,106,210,.25);
+    }
+    .pill .count { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+    .pill.active .count { color: rgba(255,255,255,.8); }
+    .pill:disabled, .pill.disabled { opacity: .35; cursor: not-allowed; }
+
+    /* ---------- Customer search ---------- */
+    .toolbar { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: end; }
+
+    .result-list {
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      max-height: 360px; overflow: auto; margin-top: 12px; background: var(--surface);
+    }
+    .result-row {
+      padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer;
+      transition: background .12s var(--ease);
+      display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+    }
+    .result-row:last-child { border-bottom: 0; }
+    .result-row:hover { background: var(--primary-tint); }
+    .result-row.selected { background: var(--primary-soft); }
+    .result-row.disabled { opacity: .55; cursor: not-allowed; }
+    .result-row.disabled:hover { background: transparent; }
+    .result-row .name { font-weight: 600; font-size: 14px; color: var(--text); }
+    .result-row .meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
+
+    /* ---------- Badges ---------- */
+    .badge {
+      display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 600;
+      padding: 2px 7px; border-radius: 4px; letter-spacing: 0.01em; text-transform: uppercase;
+    }
+    .badge.b-eligible  { background: var(--success-soft); color: var(--success); }
+    .badge.b-pending   { background: var(--warn-soft);    color: var(--warn); }
+    .badge.b-rejected  { background: var(--danger-soft);  color: var(--danger); }
+    .badge.b-broker    { background: var(--primary-soft); color: var(--primary); }
+    .badge.b-accident  { background: var(--accent-purple-soft); color: var(--accent-purple); }
+    .badge.b-tlc       { background: var(--accent-tlc-soft); color: var(--accent-tlc); }
+    .badge.b-hybrid    { background: var(--accent-hyb-soft); color: var(--accent-hyb); }
+    .badge.b-inprog    { background: var(--warn-soft);    color: var(--warn); }
+    .badge.b-qd        { background: #fff7ed;             color: #c2410c; }
+
+    /* ---------- Deal type ---------- */
+    .deal-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .deal-type-card {
+      padding: 16px 16px; background: var(--surface); border: 1px solid var(--border-strong);
+      border-radius: var(--radius); cursor: pointer; transition: all .15s var(--ease);
+      position: relative;
+    }
+    .deal-type-card:hover { border-color: var(--primary); }
+    .deal-type-card.active {
+      border-color: var(--primary); background: var(--primary-tint);
+      box-shadow: 0 2px 8px rgba(94,106,210,.12);
+    }
+    .deal-type-card.disabled { opacity: .35; cursor: not-allowed; }
+    .deal-type-card .name { font-size: 15px; font-weight: 600; color: var(--text); }
+    .deal-type-card .desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .deal-type-card .check { position: absolute; top: 12px; right: 12px; width: 16px; height: 16px;
+      border: 1.5px solid var(--border-strong); border-radius: 50%; background: var(--surface);
+      transition: all .15s var(--ease); }
+    .deal-type-card.active .check { border-color: var(--primary); background: var(--primary); }
+    .deal-type-card.active .check::after {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%); width: 6px; height: 6px; border-radius: 50%; background: #fff;
+    }
+
+    /* ---------- Vehicle table ---------- */
+    .vtable-wrap {
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      max-height: 480px; overflow: auto; background: var(--surface); margin-top: 12px;
+      box-shadow: var(--shadow-1);
+    }
+    .vtable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+    .vtable thead th {
+      background: var(--surface-2); text-align: left; padding: 10px 12px;
+      font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 1; white-space: nowrap;
+      font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase;
+    }
+    .vtable tbody td {
+      padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    .vtable tbody tr { cursor: pointer; transition: background .12s var(--ease); }
+    .vtable tbody tr:hover { background: var(--primary-tint); }
+    .vtable tbody tr.selected { background: var(--primary-soft); }
+    .vtable tbody tr.disabled { opacity: .5; cursor: not-allowed; }
+    .vtable tbody tr.disabled:hover { background: transparent; }
+    .vtable tbody tr:last-child td { border-bottom: 0; }
+    .vtable .price { font-weight: 600; color: var(--text); }
+    .vtable .bucket-type { font-weight: 500; color: var(--text); }
+    .vtable .empty { color: var(--text-muted); text-align: center; padding: 32px 12px !important; }
+
+    /* ---------- Submit area ---------- */
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+
+    .summary-block {
+      padding: 14px; background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); margin-bottom: 16px;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+    }
+    .summary-block .field-label { margin-bottom: 2px; }
+    .summary-block .value { font-size: 13.5px; font-weight: 500; color: var(--text); }
+    .summary-block .sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+    .defaults-note {
+      padding: 12px 14px; background: var(--primary-tint); border: 1px solid #d4d9f5;
+      border-radius: var(--radius-sm); font-size: 12.5px; color: var(--text-soft);
+      margin-top: 16px; line-height: 1.6;
+    }
+    .defaults-note code {
+      font-family: var(--mono); font-size: 11px; background: var(--surface);
+      padding: 1px 6px; border-radius: 3px; color: var(--text);
+    }
+
+    /* Inline action bar at the bottom of the active section */
+    .form-actions {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-top: 24px; padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .form-actions .help { color: var(--text-muted); font-size: 12.5px; }
+
+    /* Toggle switch */
+    .toggle { position: relative; display: inline-block; width: 36px; height: 20px; vertical-align: middle; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--border-strong); transition: background .2s var(--ease);
+      border-radius: 20px;
+    }
+    .toggle .slider::before {
+      position: absolute; content: ''; height: 14px; width: 14px;
+      left: 3px; bottom: 3px; background: #fff; border-radius: 50%;
+      transition: transform .2s var(--ease);
+      box-shadow: 0 1px 2px rgba(15,20,25,.18);
+    }
+    .toggle input:checked + .slider { background: var(--primary); }
+    .toggle input:checked + .slider::before { transform: translateX(16px); }
+
+    /* Pre-populated from NetSuite badge */
+    .ns-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
+      background: var(--primary-soft); color: var(--primary); margin-left: 8px;
+    }
+    .ns-badge::before { content: '⟲'; font-size: 11px; }
+
+    /* Swap-specific inputs */
+    .swap-inputs {
+      margin-top: 18px; padding: 14px 16px;
+      background: var(--accent-purple-soft); border: 1px solid #d8b4fe;
+      border-radius: var(--radius);
+    }
+    .swap-inputs .swap-h { font-size: 12px; font-weight: 600; color: var(--accent-purple);
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+
+    /* Customer details panel (after pick) */
+    .customer-detail {
+      margin-top: 12px; padding: 14px 16px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    }
+    .customer-detail .field-label { margin-bottom: 2px; }
+    .customer-detail .value { font-size: 13.5px; font-weight: 500; color: var(--text); }
+
+    /* Inline label for toggle row */
+    .row-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .row-toggle .label-block { flex: 1; }
+    .row-toggle .label-block .field-label { margin-bottom: 2px; }
+    .row-toggle .label-block .helper { font-size: 12px; color: var(--text-muted); }
+
+    .success-block {
+      padding: 16px 18px; background: var(--success-soft); border: 1px solid #abefc6;
+      border-radius: var(--radius); color: var(--success);
+    }
+    .success-block .title { font-weight: 600; font-size: 14.5px; }
+    .success-block .sub { font-size: 12.5px; margin-top: 4px; color: #15724e; }
+
+    .payload-pre {
+      background: #0c1018; color: #d6dbe6; padding: 14px 16px; border-radius: var(--radius-sm);
+      font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; max-height: 320px;
+      overflow: auto; margin-top: 12px; line-height: 1.55;
+    }
+
+    /* ---------- Lifecycle timeline ---------- */
+    .timeline {
+      display: flex; align-items: flex-start; gap: 0;
+      margin: 4px 0 22px; padding: 6px 0;
+    }
+    .tstep { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 88px; }
+    .tstep .dot {
+      position: relative; width: 28px; height: 28px; border-radius: 50%;
+      background: var(--surface); color: var(--text-faint);
+      border: 1.5px solid var(--border-strong);
+      display: grid; place-items: center; font-weight: 600; font-size: 12px;
+      transition: all .25s var(--ease);
+      font-variant-numeric: tabular-nums;
+    }
+    .tstep.complete .dot { background: var(--success); border-color: var(--success); color: #fff; }
+    .tstep.complete .dot .n { display: none; }
+    .tstep.complete .dot::before { content: '✓'; font-size: 14px; }
+    .tstep.current .dot {
+      background: var(--primary); border-color: var(--primary); color: #fff;
+      box-shadow: 0 0 0 4px rgba(94,106,210,.16);
+    }
+    .tstep.current .dot::after {
+      content: ''; position: absolute; inset: -4px; border-radius: 50%;
+      background: var(--primary); opacity: .25;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    .tstep.rejected .dot { background: var(--danger); border-color: var(--danger); color: #fff; }
+    .tstep.rejected .dot::before { content: '✕'; font-size: 14px; }
+    .tstep.rejected .dot .n { display: none; }
+    .tstep .lbl { font-size: 11.5px; font-weight: 500; color: var(--text-muted); text-align: center; max-width: 92px; }
+    .tstep.current .lbl, .tstep.complete .lbl { color: var(--text); font-weight: 600; }
+    .tline { flex: 1; height: 2px; background: var(--border); margin: 13px 4px 0; transition: background .3s var(--ease); border-radius: 2px; min-width: 12px; }
+    .tline.complete { background: var(--success); }
+    @keyframes pulse {
+      0%, 100% { opacity: .25; transform: scale(1); }
+      50%      { opacity: 0;   transform: scale(1.6); }
+    }
+
+    /* ---------- Stage panels ---------- */
+    .stage-panel {
+      padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--surface); margin-bottom: 14px;
+    }
+    .stage-panel.is-pending { background: var(--primary-tint); border-color: #d4d9f5; }
+    .stage-panel.is-success { background: var(--success-soft); border-color: #abefc6; }
+    .stage-panel.is-warn { background: var(--warn-soft); border-color: #fde68a; }
+    .stage-panel .title { font-weight: 600; font-size: 14.5px; display: flex; gap: 10px; align-items: center; }
+    .stage-panel .sub { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; }
+    .stage-panel.is-success .sub { color: #15724e; }
+    .stage-panel.is-pending .sub { color: #3b3f6b; }
+
+    /* ---------- Parallel task cards ---------- */
+    .tasks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .task-card {
+      border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 16px; background: var(--surface);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .task-card.done { border-color: #abefc6; background: var(--success-soft); }
+    .task-card.in-progress { border-color: var(--primary); background: var(--primary-tint); }
+    .task-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .task-title { font-size: 13.5px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+    .task-status {
+      font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+      padding: 2px 7px; border-radius: 4px; background: var(--surface-3); color: var(--text-muted);
+    }
+    .task-status.active { background: var(--primary-soft); color: var(--primary); }
+    .task-status.done   { background: #d1fadf;             color: var(--success); }
+    .task-body { color: var(--text-soft); font-size: 13px; }
+
+    /* ---------- Radio cards ---------- */
+    .radio-group { display: flex; flex-direction: column; gap: 8px; }
+    .radio-card {
+      padding: 12px 14px; border: 1.5px solid var(--border-strong); border-radius: var(--radius-sm);
+      cursor: pointer; transition: all .15s var(--ease);
+      display: flex; gap: 10px; align-items: flex-start; background: var(--surface);
+    }
+    .radio-card:hover { border-color: var(--primary); }
+    .radio-card.active { border-color: var(--primary); background: var(--primary-tint); }
+    .radio-card .radio {
+      width: 16px; height: 16px; border: 1.5px solid var(--border-strong); border-radius: 50%;
+      margin-top: 2px; position: relative; flex-shrink: 0; background: var(--surface);
+    }
+    .radio-card.active .radio { border-color: var(--primary); }
+    .radio-card.active .radio::after {
+      content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+    }
+    .radio-card .rl { flex: 1; }
+    .radio-card .rl-label { font-size: 13.5px; font-weight: 600; color: var(--text); }
+    .radio-card .rl-desc  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ---------- Mock payment portal ---------- */
+    .pos-card {
+      border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 16px;
+      background: linear-gradient(180deg, #fff, #fbfbfd); margin-top: 10px;
+    }
+    .pos-card .pos-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .pos-card .pos-title { font-weight: 600; font-size: 13.5px; }
+    .pos-card .grid-2 { gap: 10px; }
+    .pos-card input { padding: 8px 10px; font-size: 13px; }
+    .pos-card .pos-pay { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .pos-card .pos-amount { font-size: 18px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .sms-card {
+      border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 18px 16px;
+      background: var(--surface); margin-top: 10px; text-align: center;
+    }
+    .sms-card .phone-icon {
+      width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 10px;
+      background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; font-size: 22px;
+    }
+    .sms-card .phone-num { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text); margin: 4px 0 6px; }
+    .sms-card .meta { font-size: 12px; color: var(--text-muted); }
+
+    .demo-controls {
+      margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-sm);
+      background: var(--accent-purple-soft); border: 1px dashed #d8b4fe;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    .demo-controls .lbl { font-size: 11px; font-weight: 600; color: var(--accent-purple); text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+
+    /* ---------- Helpers ---------- */
+    .row-flex { display: flex; align-items: center; gap: 8px; }
+    .spacer { flex: 1; }
+    .text-muted { color: var(--text-muted); }
+    .text-faint { color: var(--text-faint); font-size: 12px; }
+    .nowrap { white-space: nowrap; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+
+    /* ---------- Accessibility: respect reduced-motion preference ---------- */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* ---------- Accessibility: visible focus rings on all interactive surfaces ---------- */
+    button.btn:focus-visible,
+    .pill:focus-visible,
+    .qd-loc-pill:focus-visible,
+    .deal-type-card:focus-visible,
+    .radio-card:focus-visible,
+    .result-row:focus-visible,
+    .vtable tbody tr:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(94,106,210,.3);
+    }
+    .deal-type-card:focus-visible,
+    .radio-card:focus-visible {
+      border-color: var(--primary);
+    }
+
+    /* ===================================================================== *
+     *  Responsive — tablet (≤768px) and phone (≤480px)
+     * ===================================================================== */
+    @media (max-width: 768px) {
+      .shell { margin: 16px auto 24px; padding: 0 12px; }
+      .app-bar { padding: 12px 16px; }
+      .app-bar .crumbs { display: none; }
+      .app-bar .user .username { display: none; }
+      .page-h h1 { font-size: 22px; }
+      .page-sub { font-size: 13px; }
+
+      .section-head { padding: 14px 16px; gap: 10px; }
+      .section-body { padding: 4px 16px 16px; }
+      .step-title { flex-direction: column; align-items: flex-start; gap: 2px; }
+      .summary-chip { max-width: calc(100vw - 130px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      .grid-3 { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .grid-4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .summary-block { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+      .customer-detail { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 14px; }
+      .deal-types { grid-template-columns: 1fr 1fr; }
+      .qd-channel-grid { grid-template-columns: 1fr 1fr; }
+
+      .toolbar { grid-template-columns: 1fr; gap: 10px; }
+      .toolbar > div:nth-child(2),
+      .toolbar > div:nth-child(3) { width: auto; }
+
+      .form-actions { flex-direction: column; align-items: stretch; gap: 10px; }
+      .form-actions .help { order: 2; text-align: center; }
+      .form-actions .row-flex { width: 100%; justify-content: space-between; gap: 8px; }
+      .form-actions .row-flex .btn { flex: 1; }
+
+      /* Vehicle table — already scrolls horizontally; tighten font */
+      .vtable thead th { font-size: 10px; padding: 8px 8px; }
+      .vtable tbody td { padding: 9px 8px; font-size: 11px; }
+
+      /* Lifecycle timeline — let it scroll if it overflows */
+      .timeline { overflow-x: auto; padding-bottom: 6px; }
+      .tstep { min-width: 70px; }
+      .tstep .lbl { font-size: 10.5px; max-width: 70px; }
+
+      /* Active deal banner: shrink large grids */
+      .swap-inputs { padding: 12px 14px; }
+      .swap-inputs .swap-h { font-size: 11px; }
+
+      .stage-panel { padding: 14px; }
+      .stage-panel .title { font-size: 14px; }
+
+      .tasks { grid-template-columns: 1fr; gap: 10px; }
+      .pos-card .pos-pay { flex-direction: column; align-items: stretch; gap: 10px; }
+      .pos-card .pos-pay .btn { width: 100%; }
+    }
+
+    @media (max-width: 480px) {
+      .shell { margin: 12px auto 24px; padding: 0 10px; }
+      .qd-card, .section { border-radius: 8px; }
+      .section-head { padding: 12px 14px; }
+      .section-body { padding: 4px 14px 14px; }
+      .page-h h1 { font-size: 20px; }
+      .demo-tag { font-size: 10px; }
+
+      /* Single-column for everything */
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; gap: 10px; }
+      .summary-block { grid-template-columns: 1fr; gap: 10px; }
+      .customer-detail { grid-template-columns: 1fr; gap: 10px; }
+      .deal-types { grid-template-columns: 1fr; }
+      .qd-channel-grid { grid-template-columns: 1fr; }
+
+      /* Pills */
+      .pills, .qd-loc-pills { gap: 6px; }
+      .pill, .qd-loc-pill { padding: 7px 12px; font-size: 12px; }
+
+      /* Buttons full-width in form actions */
+      .form-actions .row-flex .btn { font-size: 13px; padding: 10px 12px; }
+
+      .summary-chip { max-width: calc(100vw - 110px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="qd-root"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
+
+  <script>
+  /* =========================================================================
+   *  REFERENCE DATA (anonymized, distributionally accurate)
+   * ========================================================================= */
+
+  const ELIGIBLE_UW = new Set(['Re-Approve', 'Approved', 'Submitted to Broker']);
+
+  // Real Tower locations with codes.
+  const LOCATIONS = [
+    { id: '04', label: 'LIC — Agency',       sub: 'New York · 04' },
+    { id: '05', label: 'LIC — Dealership',   sub: 'New York · 05' },
+    { id: '06', label: 'Yankee Lot',         sub: 'New York · 06' },
+    { id: '07', label: 'Bronx — Dealership', sub: 'New York · 07' },
+    { id: '63', label: 'LA — Mission',       sub: 'California · 63' }
+  ];
+
+  const SUBSIDIARIES_BY_LOCATION = {
+    '04': ['VENTURE LEASING','METROPOLITAN LEASING'],
+    '05': ['VENTURE LEASING','M & T EQUIPMENT FUNDING','ADVANTAGE LEASE FUNDING'],
+    '06': ['CB LIVERY LEASING','TOWER LIVERY SERVICES'],
+    '07': ['CB LIVERY LEASING','CB LEASE FUNDING','RA LEASING'],
+    '63': ['CARTOO','LA RIDESHARE']
+  };
+
+  // Deal-type tree: parent → ordered subtypes (most common first per real volume).
+  // Channel availability per location matches the matrix Ohad provided.
+  // OPLS is the new name for legacy rentals — kept under the Rental/OPLS bucket.
+  const DEAL_TYPES = [
+    { id: 'lease',   name: 'Lease',   desc: 'Recurring payment to ownership',
+      subtypes: [
+        { id: 'LTOWPC',  name: 'LTOWPC',  desc: 'Lease-to-own with package',     vol: 49,  locations: ['04','05','06','07'] },
+        { id: 'LTO',     name: 'LTO',     desc: 'Lease-to-own',                   vol: 6,   locations: ['04','05','07'] },
+        { id: 'RTO-LA',  name: 'RTO-LA',  desc: 'Rent-to-own (LA market)',        vol: 2,   locations: ['63'] }
+      ] },
+    { id: 'finance', name: 'Finance', desc: 'Vehicle financing',
+      subtypes: [
+        { id: 'FINANCE',     name: 'FINANCE',     desc: 'Standard vehicle financing',   vol: 11,  locations: ['04','05'] }
+      ] },
+    { id: 'rental',  name: 'Rental / OPLS', desc: 'Short-term rental or operating lease',
+      subtypes: [
+        { id: 'OPLS',    name: 'OPLS',    desc: 'Operating lease / rental',         vol: 18,  locations: ['04','05','06','07'] },
+        { id: 'RENTAL',  name: 'RENTAL',  desc: 'Standard rental',                  vol: 7,   locations: ['04','05','07'] },
+        { id: 'PACKAGE', name: 'PACKAGE', desc: 'Bundled package rental',           vol: 7,   locations: ['07'] }
+      ] }
+  ];
+
+  const CUSTOMERS = [
+    { id:'PL-2901', first:'Driver',  last:'A1',  dl:'F5257412',  phone:'(347) 555-0182', email:'a1.driver@example.com',  visitedLoc:'Walkin004 LIC-A',  reasonOfVisit:'Lease',         uw:'Re-Approve',          tlc:'TLC-3yr',  city:'Astoria',          state:'NY', dob:'1985-04-12', salesRep:'Yordy Martinez',    customerId:'137478', existing:false, insuranceSurcharge:null,
+      activeDeal:null },
+    { id:'PL-2902', first:'Driver',  last:'A2',  dl:'B3495465',  phone:'(917) 555-0344', email:'a2.driver@example.com',  visitedLoc:'Walkin001 Bronx',  reasonOfVisit:'Rent',          uw:'Re-Approve',          tlc:'TLC-1yr',  city:'Bronx',            state:'NY', dob:'1979-09-21', salesRep:'Brandon Albarracin', customerId:'139201', existing:true,  insuranceSurcharge:25,
+      activeDeal: { stockNo:'10060-19', channel:'LTOWPC',  vehicle:'2023 Toyota Camry LE',     startedOn:'2024-08-15', regularPayment:415, frequency:'Weekly',  cashDown:1500, deposit:0,   insuranceSurcharge:25 } },
+    { id:'PL-2903', first:'Driver',  last:'A3',  dl:'G987654321',phone:'(718) 555-0921', email:'a3.driver@example.com',  visitedLoc:'Walkin003 LIC-D',  reasonOfVisit:'Rent',          uw:'Pending More Info',   tlc:'None',     city:'Long Island City', state:'NY', dob:'1991-02-08', salesRep:'Yordy Martinez',    customerId:null,     existing:false, insuranceSurcharge:null,
+      activeDeal:null },
+    { id:'PL-2904', first:'Driver',  last:'A4',  dl:'K456123789',phone:'(929) 555-0667', email:'a4.driver@example.com',  visitedLoc:'Walkin001 Bronx',  reasonOfVisit:'Lease',         uw:'Re-Approve',          tlc:'TLC-5yr',  city:'Bronx',            state:'NY', dob:'1976-11-30', salesRep:'Brandon Albarracin', customerId:'140112', existing:true,  insuranceSurcharge:null,
+      activeDeal: { stockNo:'10142-21', channel:'LTO',     vehicle:'2022 Toyota Sienna LE',    startedOn:'2024-02-20', regularPayment:445, frequency:'Weekly',  cashDown:1500, deposit:0,   insuranceSurcharge:null } },
+    { id:'PL-2905', first:'Driver',  last:'A5',  dl:'H321789456',phone:'(646) 555-0118', email:'a5.driver@example.com',  visitedLoc:'LA Walkin',        reasonOfVisit:'Rent',          uw:'Re-Approve',          tlc:'None',     city:'Los Angeles',      state:'CA', dob:'1988-06-15', salesRep:'Estefania Hernandez',customerId:'140559', existing:true,  insuranceSurcharge:null,
+      activeDeal: { stockNo:'10301-23', channel:'RTO-LA',  vehicle:'2024 Tesla Model Y',       startedOn:'2024-11-05', regularPayment:509, frequency:'Weekly',  cashDown:4000, deposit:0,   insuranceSurcharge:null } },
+    { id:'PL-2906', first:'Driver',  last:'A6',  dl:'C159753248',phone:'(347) 555-0244', email:'a6.driver@example.com',  visitedLoc:'Walkin004 LIC-A',  reasonOfVisit:'Service',       uw:'Pending Driving Exp', tlc:'None',     city:'Queens',           state:'NY', dob:'1995-03-22', salesRep:'Danyeli Reyes',     customerId:null,     existing:false, insuranceSurcharge:null,
+      activeDeal:null },
+    { id:'PL-2907', first:'Driver',  last:'A7',  dl:'A852741963',phone:'(917) 555-0455', email:'a7.driver@example.com',  visitedLoc:'Walkin005 Bronx',  reasonOfVisit:'Lease',         uw:'Re-Approve',          tlc:'TLC-2yr',  city:'Yonkers',          state:'NY', dob:'1982-07-04', salesRep:'Brandon Albarracin', customerId:'140822', existing:false, insuranceSurcharge:null,
+      activeDeal:null },
+    { id:'PL-2908', first:'Driver',  last:'A8',  dl:'R741852963',phone:'(718) 555-0533', email:'a8.driver@example.com',  visitedLoc:'Walkin003 LIC-D',  reasonOfVisit:'Package Rental',uw:'Re-Approve',          tlc:'TLC-1yr',  city:'Long Island City', state:'NY', dob:'1990-12-19', salesRep:'Yordy Martinez',    customerId:'141039', existing:true,  insuranceSurcharge:18,
+      activeDeal: { stockNo:'10184-22', channel:'FINANCE', vehicle:'2024 Toyota Camry XLE',    startedOn:'2024-09-01', regularPayment:495, frequency:'Weekly',  cashDown:2500, deposit:0,   insuranceSurcharge:18 } },
+    { id:'PL-2909', first:'Driver',  last:'A9',  dl:'M998877665',phone:'(929) 555-0901', email:'a9.driver@example.com',  visitedLoc:'Walkin004 LIC-A',  reasonOfVisit:'Rent',          uw:'Submitted to Broker', tlc:'TLC-3yr',  city:'Long Island City', state:'NY', dob:'1987-01-25', salesRep:'Yordy Martinez',    customerId:null,     existing:false, insuranceSurcharge:null,
+      activeDeal:null },
+    { id:'PL-2910', first:'Driver',  last:'A10', dl:'S112233445',phone:'(347) 555-0712', email:'a10.driver@example.com', visitedLoc:'Walkin001 Bronx',  reasonOfVisit:'Rental Swap',   uw:'Re-Approve',          tlc:'TLC-2yr',  city:'Bronx',            state:'NY', dob:'1984-08-08', salesRep:'Brandon Albarracin', customerId:'141214', existing:true,  insuranceSurcharge:35,
+      activeDeal: { stockNo:'10209-22', channel:'LTO',     vehicle:'2022 Toyota Sienna XLE',   startedOn:'2024-04-22', regularPayment:520, frequency:'Weekly',  cashDown:2000, deposit:0,   insuranceSurcharge:35 } },
+    { id:'PL-2911', first:'Driver',  last:'A11', dl:'D556677889',phone:'(347) 555-0233', email:'a11.driver@example.com', visitedLoc:'Walkin004 LIC-A',  reasonOfVisit:'Rent',          uw:'Rejected',            tlc:'None',     city:'Queens',           state:'NY', dob:'1993-10-11', salesRep:'Yordy Martinez',    customerId:null,     existing:false, insuranceSurcharge:null,
+      activeDeal:null },
+    { id:'PL-2913', first:'Driver',  last:'A13', dl:'P334455667',phone:'(718) 555-0875', email:'a13.driver@example.com', visitedLoc:'LA Walkin',        reasonOfVisit:'Rent',          uw:'Re-Approve',          tlc:'None',     city:'Los Angeles',      state:'CA', dob:'1989-03-17', salesRep:'Estefania Hernandez',customerId:'141622', existing:false, insuranceSurcharge:null,
+      activeDeal:null },
+    { id:'PL-2915', first:'Driver',  last:'A15', dl:'N889900112',phone:'(917) 555-0188', email:'a15.driver@example.com', visitedLoc:'Walkin004 LIC-A',  reasonOfVisit:'Rent',          uw:'Re-Approve',          tlc:'TLC-1yr',  city:'Long Island City', state:'NY', dob:'1986-12-06', salesRep:'Yordy Martinez',    customerId:'141833', existing:true,  insuranceSurcharge:20,
+      activeDeal:null },
+    // ----- New customers with active deals (added for v3.6 swap demo) -----
+    { id:'PL-2916', first:'Driver',  last:'A16', dl:'T556677889',phone:'(347) 555-0455', email:'a16.driver@example.com', visitedLoc:'Walkin005 Bronx',  reasonOfVisit:'Rental Swap',   uw:'Re-Approve',          tlc:'TLC-2yr',  city:'Bronx',            state:'NY', dob:'1983-05-19', salesRep:'Brandon Albarracin', customerId:'142055', existing:true,  insuranceSurcharge:null,
+      activeDeal: { stockNo:'10355-24', channel:'RENTAL',     vehicle:'2022 Chrysler Voyager',    startedOn:'2025-09-15', regularPayment:680, frequency:'Weekly',  cashDown:1000, deposit:300, insuranceSurcharge:null } },
+    { id:'PL-2917', first:'Driver',  last:'A17', dl:'W778899001',phone:'(917) 555-0822', email:'a17.driver@example.com', visitedLoc:'Walkin004 LIC-A',  reasonOfVisit:'Package Rental',uw:'Re-Approve',          tlc:'TLC-3yr',  city:'Long Island City', state:'NY', dob:'1980-11-02', salesRep:'Yordy Martinez',    customerId:'142188', existing:true,  insuranceSurcharge:20,
+      activeDeal: { stockNo:'10412-22', channel:'PACKAGE',    vehicle:'2023 Honda Accord LX',     startedOn:'2026-01-20', regularPayment:580, frequency:'Weekly',  cashDown:0,    deposit:400, insuranceSurcharge:20 } },
+    { id:'PL-2918', first:'Driver',  last:'A18', dl:'Y223344556',phone:'(929) 555-0333', email:'a18.driver@example.com', visitedLoc:'Walkin003 LIC-D',  reasonOfVisit:'Lease',         uw:'Re-Approve',          tlc:'TLC-4yr',  city:'Long Island City', state:'NY', dob:'1978-08-30', salesRep:'Yordy Martinez',    customerId:'142340', existing:true,  insuranceSurcharge:null,
+      activeDeal: { stockNo:'10501-25', channel:'FINANCE-EXT',vehicle:'2025 Tesla Model Y',       startedOn:'2025-11-01', regularPayment:485, frequency:'Monthly', cashDown:3000, deposit:0,   insuranceSurcharge:null } }
+  ];
+
+  function offering(o) { return Object.assign({ partner:'OTHER', hybrid:false, passtime:true, inProgress:false, quickDeal:false, calcFreq:'Weekly' }, o); }
+
+  // Each row is a (vehicle × bucket × salesChannel × location) combo. Same Stock # may appear multiple times.
+  // Locations encoded with the real 04/05/06/07/09/63 codes; channel mix matches the per-location matrix.
+  const OFFERINGS = [
+    // ===== 04 — LIC, Agency =====================================================
+    offering({ id:'O-101', stockNo:'18204', shortVin:'445112', vin:'4T1B11HK1NU445112', plate:'T245901C', brand:'TOYOTA',  model:'Camry LE',        year:2024, color:'Silver',      subsidiary:'VENTURE LEASING',         location:'04', bucket:'GENERAL 2024',     bucketType:'Camry LE - 3.5 YR (2K or less)',         salesChannel:'LTOWPC',     inventoryType:'Inventory',  regularPayment:415, noOfPayments:185, cashDown:1500, retailPrice:31200, quickDeal:true }),
+    offering({ id:'O-102', stockNo:'18204', shortVin:'445112', vin:'4T1B11HK1NU445112', plate:'T245901C', brand:'TOYOTA',  model:'Camry LE',        year:2024, color:'Silver',      subsidiary:'VENTURE LEASING',         location:'04', bucket:'GENERAL 2024',     bucketType:'Camry LE - WK Rental',                    salesChannel:'RENTAL',     inventoryType:'Fixed Asset', regularPayment:540, noOfPayments:53,  cashDown:0,    retailPrice:31200 }),
+    offering({ id:'O-103', stockNo:'18204', shortVin:'445112', vin:'4T1B11HK1NU445112', plate:'T245901C', brand:'TOYOTA',  model:'Camry LE',        year:2024, color:'Silver',      subsidiary:'VENTURE LEASING',         location:'04', bucket:'GENERAL 2024',     bucketType:'Camry LE - PKG Bundle',                   salesChannel:'PACKAGE',    inventoryType:'Fixed Asset', regularPayment:580, noOfPayments:53,  cashDown:0,    retailPrice:31200 }),
+    offering({ id:'O-104', stockNo:'18301', shortVin:'577001', vin:'4T1F11AK2LU577001', plate:'T334120C', brand:'TOYOTA',  model:'Camry Hybrid LE', year:2023, color:'Green',       subsidiary:'METROPOLITAN LEASING',    location:'04', bucket:'GENERAL 2023',     bucketType:'Camry Hybrid LE - 3.5 YR (21-40K)',       salesChannel:'LTOWPC',     inventoryType:'Inventory',  regularPayment:425, noOfPayments:185, cashDown:1500, hybrid:true, retailPrice:29800 }),
+    offering({ id:'O-105', stockNo:'18512', shortVin:'711980', vin:'5YJ3E1EA6NF711980', plate:'T160820C', brand:'TESLA',   model:'Model Y LR',      year:2024, color:'Silver',      subsidiary:'METROPOLITAN LEASING',    location:'04', bucket:'EV 2024',          bucketType:'Model Y LR - FIN 5 YR EXT',               salesChannel:'FINANCE-EXT',inventoryType:'Inventory',  regularPayment:485, noOfPayments:265, cashDown:3000, retailPrice:44800 }),
+
+    // ===== 05 — LIC, Dealership (the busiest location) =========================
+    offering({ id:'O-201', stockNo:'18102', shortVin:'310445', vin:'5YJ3E1EA9PF310445', plate:'T912012C', brand:'TESLA',   model:'Model Y',         year:2024, color:'Black',       subsidiary:'M & T EQUIPMENT FUNDING', location:'05', bucket:'GENERAL 2024',     bucketType:'Tesla Model Y - 3.5 YR (40K+)',           salesChannel:'LTOWPC',     inventoryType:'Inventory',  regularPayment:485, noOfPayments:185, cashDown:1500, retailPrice:42100, quickDeal:true }),
+    offering({ id:'O-202', stockNo:'18102', shortVin:'310445', vin:'5YJ3E1EA9PF310445', plate:'T912012C', brand:'TESLA',   model:'Model Y',         year:2024, color:'Black',       subsidiary:'M & T EQUIPMENT FUNDING', location:'05', bucket:'GENERAL 2024',     bucketType:'Tesla Model Y - 4 YR (40K+)',             salesChannel:'LTO',        inventoryType:'Inventory',  regularPayment:445, noOfPayments:211, cashDown:1500, retailPrice:42100 }),
+    offering({ id:'O-203', stockNo:'18102', shortVin:'310445', vin:'5YJ3E1EA9PF310445', plate:'T912012C', brand:'TESLA',   model:'Model Y',         year:2024, color:'Black',       subsidiary:'M & T EQUIPMENT FUNDING', location:'05', bucket:'GENERAL 2024',     bucketType:'Tesla Model Y - FIN 4 YR',                salesChannel:'FINANCE',    inventoryType:'Inventory',  regularPayment:560, noOfPayments:211, cashDown:3000, retailPrice:42100 }),
+    offering({ id:'O-204', stockNo:'18102', shortVin:'310445', vin:'5YJ3E1EA9PF310445', plate:'T912012C', brand:'TESLA',   model:'Model Y',         year:2024, color:'Black',       subsidiary:'M & T EQUIPMENT FUNDING', location:'05', bucket:'GENERAL 2024',     bucketType:'Tesla Model Y - FIN 5 YR EXT',            salesChannel:'FINANCE-EXT',inventoryType:'Inventory',  regularPayment:485, noOfPayments:265, cashDown:3000, retailPrice:42100 }),
+    offering({ id:'O-205', stockNo:'18105', shortVin:'620881', vin:'4T1B11HK1NU620881', plate:'T140505C', brand:'TOYOTA',  model:'Camry LE',        year:2024, color:'White',       subsidiary:'VENTURE LEASING',         location:'05', bucket:'GENERAL 2024',     bucketType:'Camry LE - 3.5 YR (2K or less)',         salesChannel:'LTOWPC',     inventoryType:'Inventory',  regularPayment:415, noOfPayments:185, cashDown:1500, retailPrice:31200 }),
+    offering({ id:'O-206', stockNo:'18105', shortVin:'620881', vin:'4T1B11HK1NU620881', plate:'T140505C', brand:'TOYOTA',  model:'Camry LE',        year:2024, color:'White',       subsidiary:'VENTURE LEASING',         location:'05', bucket:'GENERAL 2024',     bucketType:'Camry LE - 3 YR LTO-EX',                  salesChannel:'LTO-EX',     inventoryType:'Inventory',  regularPayment:445, noOfPayments:159, cashDown:1500, retailPrice:31200 }),
+    offering({ id:'O-207', stockNo:'18620', shortVin:'515088', vin:'4T1F11AK6PU515088', plate:'T120345C', brand:'TOYOTA',  model:'Camry XLE',       year:2025, color:'Pearl',       subsidiary:'ADVANTAGE LEASE FUNDING', location:'05', bucket:'GENERAL 2025',     bucketType:'Camry XLE - FIN 4 YR',                    salesChannel:'FINANCE',    inventoryType:'Inventory',  regularPayment:495, noOfPayments:211, cashDown:2500, retailPrice:32500 }),
+    offering({ id:'O-208', stockNo:'18620', shortVin:'515088', vin:'4T1F11AK6PU515088', plate:'T120345C', brand:'TOYOTA',  model:'Camry XLE',       year:2025, color:'Pearl',       subsidiary:'ADVANTAGE LEASE FUNDING', location:'05', bucket:'GENERAL 2025',     bucketType:'Camry XLE - FIN-EX 4 YR',                 salesChannel:'FINANCE-EX', inventoryType:'Inventory',  regularPayment:520, noOfPayments:211, cashDown:0,    retailPrice:32500 }),
+    offering({ id:'O-209', stockNo:'12108', shortVin:'480334', vin:'5J6RW2H51LL480334', plate:'T180119C', brand:'HONDA',   model:'Accord LX',       year:2022, color:'Gray',        subsidiary:'VENTURE LEASING',         location:'05', bucket:'Mid Size 2022',    bucketType:'Accord LX - WK Rental',                   salesChannel:'RENTAL',     inventoryType:'Fixed Asset', regularPayment:540, noOfPayments:53,  cashDown:500,  retailPrice:21900 }),
+    offering({ id:'O-210', stockNo:'12108', shortVin:'480334', vin:'5J6RW2H51LL480334', plate:'T180119C', brand:'HONDA',   model:'Accord LX',       year:2022, color:'Gray',        subsidiary:'VENTURE LEASING',         location:'05', bucket:'Mid Size 2022',    bucketType:'Accord LX - PKG Bundle',                  salesChannel:'PACKAGE',    inventoryType:'Fixed Asset', regularPayment:580, noOfPayments:53,  cashDown:0,    retailPrice:21900 }),
+    offering({ id:'O-211', stockNo:'12108', shortVin:'480334', vin:'5J6RW2H51LL480334', plate:'T180119C', brand:'HONDA',   model:'Accord LX',       year:2022, color:'Gray',        subsidiary:'VENTURE LEASING',         location:'05', bucket:'Mid Size 2022',    bucketType:'Accord LX - PKG-EX',                      salesChannel:'PACKAGE EX', inventoryType:'Fixed Asset', regularPayment:625, noOfPayments:53,  cashDown:0,    retailPrice:21900 }),
+    offering({ id:'O-212', stockNo:'18802', shortVin:'790112', vin:'4T1B11HK1NU790112', plate:'T155080C', brand:'TOYOTA',  model:'Camry SE',        year:2023, color:'Black',       subsidiary:'VENTURE LEASING',         location:'05', bucket:'GENERAL 2023',     bucketType:'Camry SE - LEGAL DEAL',                   salesChannel:'LEGAL DEAL', inventoryType:'Fixed Asset', regularPayment:0,   noOfPayments:0,   cashDown:0,    retailPrice:24500 }),
+    offering({ id:'O-213', stockNo:'18910', shortVin:'822101', vin:'5TDKZ3DC8MS822101', plate:'T172409C', brand:'TOYOTA',  model:'Sienna LE',       year:2023, color:'Silver',      subsidiary:'ADVANTAGE LEASE FUNDING', location:'05', bucket:'Sienna 2023',      bucketType:'Sienna LE - SALES',                       salesChannel:'SALES',      inventoryType:'Inventory',  regularPayment:0,   noOfPayments:0,   cashDown:32000, retailPrice:34800 }),
+
+    // ===== 06 — Yankee Lot (LTOWPC + OPLS only) ================================
+    offering({ id:'O-301', stockNo:'18420', shortVin:'622334', vin:'5TDKZ3DC1NS622334', plate:'T401923C', brand:'TOYOTA',  model:'Sienna XL(WAV)',  year:2022, color:'Silver',      subsidiary:'TOWER LIVERY SERVICES',   location:'06', bucket:'WAV 2022',         bucketType:'Sienna WAV - 3.5 YR',                     salesChannel:'LTOWPC',     inventoryType:'Inventory',  regularPayment:540, noOfPayments:185, cashDown:0,    retailPrice:48200 }),
+    offering({ id:'O-302', stockNo:'13145-25', shortVin:'105321', vin:'2C4RC1EG3NR105321', plate:'T532187C', brand:'CHRYSLER',model:'Voyager',     year:2022, color:'Gray',        subsidiary:'CB LIVERY LEASING',       location:'06', bucket:'CV22',             bucketType:'CV22 - OPLS',                             salesChannel:'OPLS',       inventoryType:'Fixed Asset', regularPayment:680, noOfPayments:159, cashDown:1000, retailPrice:28400 }),
+    offering({ id:'O-303', stockNo:'11264-20', shortVin:'372561', vin:'4T1B11HK1MU372561', plate:'T688314C', brand:'TOYOTA',  model:'Camry',       year:2020, color:'Black',       subsidiary:'CB LIVERY LEASING',       location:'06', bucket:'Full Size 2020',   bucketType:'Full Size 2020 - OPLS',                  salesChannel:'OPLS',       inventoryType:'Fixed Asset', regularPayment:540, noOfPayments:159, cashDown:0,    retailPrice:18900 }),
+    offering({ id:'O-304', stockNo:'12340-21', shortVin:'498117', vin:'5J6RW2H51KL498117', plate:'T720819C', brand:'HONDA',   model:'Odyssey LX',  year:2020, color:'White',       subsidiary:'TOWER LIVERY SERVICES',   location:'06', bucket:'Odyssey 2020',     bucketType:'Odyssey LX - OPLS',                      salesChannel:'OPLS',       inventoryType:'Fixed Asset', regularPayment:495, noOfPayments:159, cashDown:500,  retailPrice:24500 }),
+
+    // ===== 07 — Bronx, Dealership ==============================================
+    offering({ id:'O-401', stockNo:'18108', shortVin:'318223', vin:'4T1B11HK1NU318223', plate:'T917230C', brand:'TOYOTA',  model:'Camry SE',        year:2024, color:'Black',       subsidiary:'CB LIVERY LEASING',       location:'07', bucket:'GENERAL 2024',     bucketType:'Camry SE - 3.5 YR (2K or less)',         salesChannel:'LTOWPC',     inventoryType:'Inventory',  regularPayment:415, noOfPayments:185, cashDown:1500, retailPrice:32800, quickDeal:true }),
+    offering({ id:'O-402', stockNo:'18108', shortVin:'318223', vin:'4T1B11HK1NU318223', plate:'T917230C', brand:'TOYOTA',  model:'Camry SE',        year:2024, color:'Black',       subsidiary:'CB LIVERY LEASING',       location:'07', bucket:'GENERAL 2024',     bucketType:'Camry SE - 3 YR LTO',                     salesChannel:'LTO',        inventoryType:'Inventory',  regularPayment:445, noOfPayments:159, cashDown:1500, retailPrice:32800 }),
+    offering({ id:'O-403', stockNo:'18305', shortVin:'410001', vin:'5TDKZ3DC8MS410001', plate:'T935608C', brand:'TOYOTA',  model:'Sienna XLE',      year:2022, color:'Silver',      subsidiary:'CB LEASE FUNDING',        location:'07', bucket:'WAV 2022',         bucketType:'Sienna XLE - 4 YR',                       salesChannel:'LTO',        inventoryType:'Inventory',  regularPayment:520, noOfPayments:211, cashDown:2000, retailPrice:38000 }),
+    offering({ id:'O-404', stockNo:'18402', shortVin:'412556', vin:'5YJ3E1EA1PF412556', plate:'T944901C', brand:'TESLA',   model:'Model Y',         year:2025, color:'Blue',        subsidiary:'CB LEASE FUNDING',        location:'07', bucket:'EV 2025',          bucketType:'Tesla Model Y - 3 YR (40K+)',             salesChannel:'LTOWPC',     inventoryType:'Inventory',  regularPayment:475, noOfPayments:159, cashDown:2000, retailPrice:43500 }),
+    offering({ id:'O-405', stockNo:'18402', shortVin:'412556', vin:'5YJ3E1EA1PF412556', plate:'T944901C', brand:'TESLA',   model:'Model Y',         year:2025, color:'Blue',        subsidiary:'CB LEASE FUNDING',        location:'07', bucket:'EV 2025',          bucketType:'Tesla Model Y - FIN 4 YR',                salesChannel:'FINANCE',    inventoryType:'Inventory',  regularPayment:560, noOfPayments:211, cashDown:3000, retailPrice:43500 }),
+    offering({ id:'O-406', stockNo:'13145-25', shortVin:'105321', vin:'2C4RC1EG3NR105321', plate:'T532187C', brand:'CHRYSLER',model:'Voyager',     year:2022, color:'Gray',        subsidiary:'RA LEASING',              location:'07', bucket:'CV22',             bucketType:'CV22 - WK Rental',                        salesChannel:'RENTAL',     inventoryType:'Fixed Asset', regularPayment:680, noOfPayments:53,  cashDown:1000, inProgress:true, retailPrice:28400 }),
+    offering({ id:'O-407', stockNo:'13145-25', shortVin:'105321', vin:'2C4RC1EG3NR105321', plate:'T532187C', brand:'CHRYSLER',model:'Voyager',     year:2022, color:'Gray',        subsidiary:'RA LEASING',              location:'07', bucket:'CV22',             bucketType:'CV22 - PKG Bundle',                       salesChannel:'PACKAGE',    inventoryType:'Fixed Asset', regularPayment:725, noOfPayments:53,  cashDown:0,    inProgress:true, retailPrice:28400 }),
+    offering({ id:'O-408', stockNo:'13145-25', shortVin:'105321', vin:'2C4RC1EG3NR105321', plate:'T532187C', brand:'CHRYSLER',model:'Voyager',     year:2022, color:'Gray',        subsidiary:'RA LEASING',              location:'07', bucket:'CV22',             bucketType:'CV22 - PKG-EX',                           salesChannel:'PACKAGE EX', inventoryType:'Fixed Asset', regularPayment:760, noOfPayments:53,  cashDown:0,    inProgress:true, retailPrice:28400 }),
+
+    // ===== 63 — LA, Mission ====================================================
+    offering({ id:'O-601', stockNo:'17894', shortVin:'278879', vin:'5YJ3E1EA6NF278879', plate:'T801234C', brand:'TOYOTA',  model:'Camry Hybrid SE', year:2026, color:'Pearl White', subsidiary:'CARTOO',                  location:'63', bucket:'CARTOO (LA) 2025', bucketType:'2025 Camry SE - 3.5 YR (2K or less)',     salesChannel:'RTO-LA',     inventoryType:'Inventory',  regularPayment:436, noOfPayments:185, cashDown:2000, hybrid:true, retailPrice:34800 }),
+    offering({ id:'O-602', stockNo:'17894', shortVin:'278879', vin:'5YJ3E1EA6NF278879', plate:'T801234C', brand:'TOYOTA',  model:'Camry Hybrid SE', year:2026, color:'Pearl White', subsidiary:'CARTOO',                  location:'63', bucket:'CARTOO (LA) 2025', bucketType:'2024 Tesla Model Y - 3.5 YR (21-40K)',    salesChannel:'RTO-LA',     inventoryType:'Inventory',  regularPayment:458, noOfPayments:185, cashDown:2000, retailPrice:38400 }),
+    offering({ id:'O-603', stockNo:'17890', shortVin:'209117', vin:'5YJ3E1EA6PF209117', plate:'T811455C', brand:'TESLA',   model:'Model Y',         year:2024, color:'White',       subsidiary:'LA RIDESHARE',            location:'63', bucket:'CARTOO (LA) 2024', bucketType:'2024 Model Y - 3.5 YR (40K+)',            salesChannel:'RTO-LA',     inventoryType:'Inventory',  regularPayment:509, noOfPayments:185, cashDown:4000, retailPrice:39900 })
+  ];
+
+  /* =========================================================================
+   *  MOCK API
+   * ========================================================================= */
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  const api = {
+    async searchCustomers({ q='', limit=40, eligibleOnly=true }) {
+      await sleep(120);
+      const term = q.trim().toLowerCase();
+      return CUSTOMERS.filter(c => {
+        if (eligibleOnly && !ELIGIBLE_UW.has(c.uw)) return false;
+        if (!term) return true;
+        return [c.first, c.last, c.dl, c.phone, c.email].some(f => f && f.toLowerCase().includes(term));
+      }).slice(0, limit);
+    },
+    async availableDealTypesForLocation(locationId) {
+      await sleep(50);
+      return DEAL_TYPES
+        .map(p => ({ ...p, subtypes: p.subtypes.filter(s => s.locations.includes(locationId)) }))
+        .filter(p => p.subtypes.length > 0);
+    },
+    async searchOfferings({ subtypeId, location, q='' }) {
+      await sleep(160);
+      const term = q.trim().toLowerCase();
+      return OFFERINGS.filter(o => {
+        if (subtypeId && o.salesChannel !== subtypeId) return false;
+        if (location && o.location !== location) return false;
+        if (term && ![o.shortVin, o.vin, o.plate, o.brand, o.model, o.bucketType].some(f => String(f).toLowerCase().includes(term))) return false;
+        return true;
+      });
+    },
+    async createDeal(p) {
+      await sleep(280);
+      const channel = DEAL_TYPES.flatMap(d => d.subtypes).find(s => s.id === p.subtypeId);
+      const offering = OFFERINGS.find(o => o.id === p.offeringId);
+      const customer = CUSTOMERS.find(c => c.id === p.customerId);
+      const stockNo = `${(channel.id || 'QD').replace(/[^A-Z0-9]/g,'').substring(0,5)}-${Date.now().toString().slice(-6)}`;
+      return {
+        id: 'STK-'+Math.floor(Math.random()*900000+100000),
+        stockNo,
+        fields: {
+          'custrecord_advs_lm_lc_stock_no':           stockNo,
+          'custrecord_advs_lm_lc_vin':                offering.id,
+          'custrecord_advs_st_sales_channel':         channel.id,
+          'custrecord_advs_lm_lc_start_date':         p.startDate,
+          'custrecord_advs_lm_lc_customer':           customer.customerId,
+          'custrecord_advs_lm_lc_subsidiary':         offering.subsidiary,
+          'custrecord_advs_tam_st_deal_progress_sta': 'Manager Approval',
+          'custrecord_advs_lm_lc_amount_by_period':   p.overrides.regularPayment ?? offering.regularPayment,
+          'custrecord_advs_lm_lc_period_in_months':   offering.noOfPayments,
+          'custrecord_advs_lm_lc_payment_frequency':  offering.calcFreq,
+          'custrecord_advs_lm_lc_down_payment':       p.overrides.cashDown ?? offering.cashDown,
+          'bucket':            offering.bucket,
+          'bucket_sub_type':   offering.bucketType,
+          'partner':           offering.partner,
+          'location':          offering.location,
+          'inventory_type':    offering.inventoryType
+        }
+      };
+    }
+  };
+
+  /* =========================================================================
+   *  COMPONENTS
+   * ========================================================================= */
+  const h = htm.bind(React.createElement);
+  const { useState, useEffect, useMemo, useRef } = React;
+
+  // ---- Icon helper (Lucide-style line icons replacing emoji-as-icons)
+  // Every icon in this prototype is paired with a visible text label, so they are
+  // decorative for screen-readers (aria-hidden). If a future icon needs to convey
+  // standalone meaning, add aria-label inline at the use site.
+  function Icon({ name, size = 16, style = {} }) {
+    const wrap = (paths) => h`<svg aria-hidden="true" focusable="false" width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style=${{display:'inline-block',verticalAlign:'middle',flexShrink:0,...style}}>${paths}</svg>`;
+    switch (name) {
+      case 'document': return wrap(h`<${React.Fragment}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></>`);
+      case 'card':     return wrap(h`<${React.Fragment}><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></>`);
+      case 'phone':    return wrap(h`<${React.Fragment}><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></>`);
+      case 'truck':    return wrap(h`<${React.Fragment}><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>`);
+      case 'bolt':     return wrap(h`<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`);
+      case 'warning':  return wrap(h`<${React.Fragment}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>`);
+      case 'clock':    return wrap(h`<${React.Fragment}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>`);
+      case 'check':    return wrap(h`<polyline points="20 6 9 17 4 12"/>`);
+      case 'x':        return wrap(h`<${React.Fragment}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>`);
+      default: return null;
+    }
+  }
+
+  function uwBadgeKind(uw) {
+    if (ELIGIBLE_UW.has(uw)) return 'b-eligible';
+    if (uw === 'Rejected') return 'b-rejected';
+    if (uw === 'Submitted to Broker') return 'b-broker';
+    if (uw && uw.toLowerCase().startsWith('accident')) return 'b-accident';
+    return 'b-pending';
+  }
+
+  function Section({ n, title, sub, state, summary, onEdit, children }) {
+    // state: 'pending' | 'active' | 'complete'
+    const cls = 'section ' + (state === 'active' ? 'is-active' : (state === 'complete' ? 'is-complete' : 'is-pending'));
+    const showSummary = state === 'complete';
+    return h`<section class=${cls}>
+      <div class="section-head" onClick=${() => state === 'complete' && onEdit && onEdit()}>
+        <div class="step-num"><span class="n">${n}</span></div>
+        <div class="step-title">
+          <h3>${title}</h3>
+          ${!showSummary && sub && h`<span class="step-sub">${sub}</span>`}
+          ${showSummary && summary && h`<span class="summary-chip">${summary}</span>`}
+        </div>
+        ${showSummary && h`<div class="edit-link">Edit</div>`}
+      </div>
+      ${state === 'active' && h`<div class="section-body">${children}</div>`}
+    </section>`;
+  }
+
+  /* ---- Section 1: Customer (with post-pick swap prompt) ---- */
+  function CustomerSection({ value, onPick, swap, setSwap, onClear }) {
+    const [q, setQ] = useState('');
+    const [eligibleOnly, setEligibleOnly] = useState(true);
+    const [rows, setRows] = useState([]);
+    const [showAdDetails, setShowAdDetails] = useState(false);  // active-deal payment details disclosure
+    const isSearching = q.trim().length > 0;
+
+    useEffect(() => {
+      if (!isSearching) { setRows([]); return; }
+      const t = setTimeout(() => api.searchCustomers({ q, eligibleOnly }).then(setRows), 180);
+      return () => clearTimeout(t);
+    }, [q, eligibleOnly, isSearching]);
+
+    // Once a customer is picked, the section either (a) collapses immediately
+    // when there's no active deal, or (b) shows the active-deal swap prompt.
+    if (value) {
+      const hasActive = !!(value.activeDeal && value.activeDeal.stockNo);
+      const ad = value.activeDeal || {};
+      const fmtDate = d => d ? new Date(d + 'T00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '';
+      return h`<div>
+        <div class="customer-detail">
+          <div><div class="field-label">Name</div><div class="value">${value.first} ${value.last}</div></div>
+          <div><div class="field-label">Driver license</div><div class="value">${value.dl}</div></div>
+          <div><div class="field-label">Phone · email</div><div class="value">${value.phone}</div><div class="sub" style=${{fontSize:12,color:'var(--text-muted)'}}>${value.email}</div></div>
+          <div><div class="field-label">Underwriting</div><div class="value">
+            <span class=${'badge ' + uwBadgeKind(value.uw)}>${value.uw}</span>
+            ${value.tlc !== 'None' && h`<span class="badge b-tlc" style=${{marginLeft:4}}>${value.tlc}</span>`}
+          </div></div>
+          <div><div class="field-label">Sales rep</div><div class="value">${value.salesRep}</div></div>
+          <div><div class="field-label">${value.customerId ? 'Customer #' : 'Customer record'}</div><div class="value">${value.customerId || 'New (will create on save)'}</div></div>
+        </div>
+
+        ${hasActive && h`<div class="swap-inputs">
+          <div class="swap-h" style=${{display:'flex',alignItems:'center',gap:8}}><${Icon} name="warning" size=${14} /> This customer has an active deal</div>
+          <div class="grid-4" style=${{marginBottom:10}}>
+            <div><div class="field-label">Stock #</div><div class="value">${ad.stockNo}</div></div>
+            <div><div class="field-label">Channel</div><div class="value">${ad.channel}</div></div>
+            <div><div class="field-label">Vehicle</div><div class="value">${ad.vehicle}</div></div>
+            <div><div class="field-label">Started</div><div class="value">${fmtDate(ad.startedOn)}</div></div>
+          </div>
+          <button class="text-link" style=${{marginBottom: showAdDetails ? 10 : 14, padding:'4px 0', textDecoration:'none'}} onClick=${() => setShowAdDetails(s => !s)}>
+            ${showAdDetails ? '▾ Hide payment details' : '▸ Show payment details'}
+          </button>
+          ${showAdDetails && h`<div class="grid-4" style=${{marginBottom:14}}>
+            <div><div class="field-label">Current payment</div><div class="value">$${ad.regularPayment}/${(ad.frequency||'').toLowerCase()}</div></div>
+            <div><div class="field-label">Cash down</div><div class="value">$${(ad.cashDown||0).toLocaleString()}</div></div>
+            <div><div class="field-label">Deposit</div><div class="value">${ad.deposit ? '$'+ad.deposit.toLocaleString() : '—'}</div></div>
+            <div><div class="field-label">Insurance</div><div class="value">${ad.insuranceSurcharge != null ? '$'+ad.insuranceSurcharge+'/period' : '—'}</div></div>
+          </div>`}
+
+          <div style=${{borderTop:'1px solid #d8b4fe', paddingTop:14, marginTop:8}}>
+            <div class="field-label" style=${{marginBottom:8}}>Is this a swap?</div>
+            ${swap.decision === null && h`<div class="row-flex" style=${{gap:14}}>
+              <button class="btn primary" onClick=${() => setSwap(s => ({...s, decision: 'yes'}))}>Yes — swap this deal</button>
+              <button class="text-link"   onClick=${() => setSwap({decision: 'no', reason: '', confirmed: true})}>or start a new deal instead</button>
+            </div>`}
+            ${swap.decision === 'yes' && h`<div>
+              <div style=${{marginBottom:6, color:'var(--success)', fontSize:12, fontWeight:600}}>✓ Swap selected</div>
+              <label class="field-label">Return reason *</label>
+              <textarea rows="2" value=${swap.reason ?? ''}
+                        onChange=${e => setSwap(s => ({...s, reason: e.target.value}))}
+                        autoFocus
+                        placeholder="Why is the existing vehicle being returned? (mechanical issue, upgrade, accident, contract end)"></textarea>
+              <div class="row-flex" style=${{marginTop:10, justifyContent:'space-between'}}>
+                <button class="btn ghost" onClick=${() => setSwap({decision: null, reason: '', confirmed: false})}>Change to new deal instead</button>
+                <button class="btn primary" disabled=${!swap.reason.trim()}
+                        onClick=${() => setSwap(s => ({...s, confirmed: true}))}>
+                  Continue with swap →
+                </button>
+              </div>
+            </div>`}
+          </div>
+        </div>`}
+
+        <div style=${{marginTop:14}}>
+          <button class="btn ghost" onClick=${onClear}>Pick a different customer</button>
+        </div>
+      </div>`;
+    }
+
+    // No customer picked yet — show search.
+    return h`<div>
+      <div class="toolbar">
+        <div>
+          <label class="field-label">Search by name, license, phone, or email</label>
+          <input value=${q} onInput=${e => setQ(e.target.value)} placeholder="e.g. Driver A2, F5257412, 347" autoFocus />
+        </div>
+        <div>
+          <label class="field-label">&nbsp;</label>
+          <button class=${'btn ' + (eligibleOnly ? 'primary' : 'ghost')} onClick=${() => setEligibleOnly(!eligibleOnly)}>
+            ${eligibleOnly ? 'Eligible only' : 'All customers'}
+          </button>
+        </div>
+        <div>
+          <label class="field-label">&nbsp;</label>
+          <span class="text-faint nowrap">
+            ${isSearching ? `${rows.length} match${rows.length === 1 ? '' : 'es'}` : 'Start typing to search'}
+          </span>
+        </div>
+      </div>
+      ${isSearching && h`<div class="result-list">
+        ${rows.length === 0 && h`<div class="result-row"><div class="text-muted">No matches for "${q}"</div></div>`}
+        ${rows.map(r => {
+          const eligible = ELIGIBLE_UW.has(r.uw);
+          const cls = 'result-row' + (!eligible ? ' disabled' : '');
+          return h`<div class=${cls} key=${r.id} onClick=${() => eligible && onPick(r)}>
+            <div>
+              <div class="name">${r.first} ${r.last} <span class="text-faint">· ${r.dl}</span></div>
+              <div class="meta">
+                ${r.phone} · ${r.email} · ${r.visitedLoc} · Visit: <strong>${r.reasonOfVisit}</strong> · Rep ${r.salesRep}
+                ${r.customerId ? ` · Customer ${r.customerId}` : ' · No customer record yet'}
+              </div>
+            </div>
+            <div class="row-flex">
+              <span class=${'badge ' + uwBadgeKind(r.uw)}>${r.uw}</span>
+              ${r.tlc !== 'None' && h`<span class="badge b-tlc">${r.tlc}</span>`}
+              ${r.activeDeal && h`<span class="qd-pill" style=${{marginLeft:4}}>active deal #${r.activeDeal.stockNo}</span>`}
+            </div>
+          </div>`;
+        })}
+      </div>`}
+    </div>`;
+  }
+
+  /* ---- Section 2: Location ---- */
+  function LocationSection({ value, onPick }) {
+    return h`<div>
+      <label class="field-label" style=${{marginBottom:10}}>Choose where the deal is being created</label>
+      <div class="pills">
+        ${LOCATIONS.map(l => h`<div key=${l.id}
+          class=${'pill ' + (value === l.id ? 'active' : '')}
+          onClick=${() => onPick(l.id)}>
+          ${l.label} <span class="count">· ${l.sub}</span>
+        </div>`)}
+      </div>
+    </div>`;
+  }
+
+  /* ---- Section 3: Deal type ---- */
+  function DealTypeSection({ location, value, subValue, onPick }) {
+    const [parents, setParents] = useState([]);
+    useEffect(() => {
+      api.availableDealTypesForLocation(location).then(setParents);
+    }, [location]);
+
+    const currentParent = parents.find(p => p.id === value);
+
+    return h`<div>
+      <label class="field-label" style=${{marginBottom:10}}>Deal category</label>
+      <div class="deal-types">
+        ${parents.map(p => {
+          const cls = 'deal-type-card' + (value === p.id ? ' active' : '');
+          return h`<div key=${p.id} class=${cls} onClick=${() => onPick(p.id, null)}>
+            <div class="check"></div>
+            <div class="name">${p.name}</div>
+            <div class="desc">${p.desc}</div>
+          </div>`;
+        })}
+      </div>
+
+      ${currentParent && h`<div style=${{marginTop:18}}>
+        <label class="field-label">Sales channel</label>
+        <select value=${subValue || ''} onChange=${e => onPick(value, e.target.value || null)}>
+          <option value="">Choose a sales channel</option>
+          ${currentParent.subtypes.map(s => h`<option key=${s.id} value=${s.id}>${s.name} — ${s.desc}</option>`)}
+        </select>
+      </div>`}
+    </div>`;
+  }
+
+  /* ---- Section 4: Vehicle ---- */
+  function VehicleSection({ subtypeId, location, value, onPick }) {
+    const [q, setQ] = useState('');
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(false);
+    useEffect(() => {
+      setLoading(true);
+      api.searchOfferings({ subtypeId, location, q }).then(r => { setRows(r); setLoading(false); });
+    }, [subtypeId, location, q]);
+
+    return h`<div>
+      <div class="toolbar">
+        <div>
+          <label class="field-label">Filter by VIN, plate, brand, model, or bucket</label>
+          <input value=${q} onInput=${e => setQ(e.target.value)} placeholder="e.g. Camry, Tesla, 278879" />
+        </div>
+        <div><label class="field-label">&nbsp;</label><span class="text-faint nowrap">${rows.length} offering${rows.length === 1 ? '' : 's'}</span></div>
+      </div>
+      <div class="vtable-wrap">
+        <table class="vtable">
+          <thead><tr>
+            <th>Bucket Type</th>
+            <th>Sales Channel</th>
+            <th>Brand · Model</th>
+            <th>Year</th>
+            <th>Stock #</th>
+            <th>Reg. Pmt</th>
+            <th>#</th>
+            <th>Cash Down</th>
+            <th>Status</th>
+          </tr></thead>
+          <tbody>
+            ${loading && h`<tr><td colspan="9" class="empty">Loading offerings…</td></tr>`}
+            ${!loading && rows.length === 0 && h`<tr><td colspan="9" class="empty">No vehicles available for this combination</td></tr>`}
+            ${rows.map(r => {
+              const cls = (value && value.id === r.id ? 'selected' : '') + (r.inProgress ? ' disabled' : '');
+              return h`<tr key=${r.id} class=${cls} onClick=${() => !r.inProgress && onPick(r)}>
+                <td class="bucket-type">${r.bucketType}</td>
+                <td>${r.salesChannel}</td>
+                <td>${r.brand} ${r.model} ${r.color ? '· ' + r.color : ''}</td>
+                <td>${r.year}</td>
+                <td>${r.stockNo}</td>
+                <td class="price">$${r.regularPayment.toLocaleString()}</td>
+                <td>${r.noOfPayments}</td>
+                <td class="price">$${r.cashDown.toLocaleString()}</td>
+                <td><div class="row-flex">
+                  ${r.quickDeal && h`<span class="badge b-qd">QD</span>`}
+                  ${r.hybrid && h`<span class="badge b-hybrid">HYB</span>`}
+                  ${r.inProgress && h`<span class="badge b-inprog">In progress</span>`}
+                </div></td>
+              </tr>`;
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  /* ---- Section 4: Deal Terms (with inherit-from-active-deal toggle) ---- */
+  function DealTermsSection({ customer, subtype, terms, setTerms, onConfirm, isSwap, termsMode, setTermsMode }) {
+    const isRental  = subtype && ['RENTAL','PACKAGE','PACKAGE EX','OPLS'].includes(subtype.id);
+    const isFinance = subtype && ['FINANCE','FINANCE-EXT','FINANCE-EX'].includes(subtype.id);
+    const showDeposit   = isRental  || isSwap;
+    const showFrequency = isFinance || isSwap;
+
+    const ad = isSwap && customer && customer.activeDeal;
+    const prePopulated = !isSwap && customer && customer.insuranceSurcharge != null;
+
+    function setField(field, value) { setTerms(t => ({ ...t, [field]: value })); }
+
+    return h`<div>
+      ${isSwap && ad && h`<div class="swap-inputs" style=${{marginTop:0, marginBottom:18}}>
+        <div class="swap-h">Swap of deal #${ad.stockNo}</div>
+        <div class="grid-4" style=${{marginBottom:12, fontSize:12}}>
+          <div><div class="field-label">Vehicle</div><div class="value">${ad.vehicle}</div></div>
+          <div><div class="field-label">Payment</div><div class="value">$${ad.regularPayment}/${(ad.frequency||'').toLowerCase()}</div></div>
+          <div><div class="field-label">Deposit</div><div class="value">${ad.deposit ? '$'+ad.deposit : '—'}</div></div>
+          <div><div class="field-label">Insurance</div><div class="value">${ad.insuranceSurcharge != null ? '$'+ad.insuranceSurcharge+'/period' : '—'}</div></div>
+        </div>
+        <div class="field-label" style=${{marginBottom:6}}>How should the new deal's terms be set?</div>
+        <div class="radio-group">
+          <div class=${'radio-card ' + (termsMode === 'inherit' ? 'active' : '')}
+               onClick=${() => setTermsMode('inherit')}>
+            <div class="radio"></div>
+            <div class="rl">
+              <div class="rl-label">Inherit from active deal</div>
+              <div class="rl-desc">Carry surcharge, deposit, and frequency from #${ad.stockNo}. Payment start date is still new.</div>
+            </div>
+          </div>
+          <div class=${'radio-card ' + (termsMode === 'new' ? 'active' : '')}
+               onClick=${() => setTermsMode('new')}>
+            <div class="radio"></div>
+            <div class="rl">
+              <div class="rl-label">Set new terms</div>
+              <div class="rl-desc">Start fresh — fields below begin blank with package defaults.</div>
+            </div>
+          </div>
+        </div>
+      </div>`}
+
+      <div class="row-toggle" style=${{padding:'4px 0'}}>
+        <div class="label-block">
+          <div class="field-label">Insurance surcharge</div>
+          <div class="helper">
+            Apply a recurring insurance surcharge to this deal.
+            ${prePopulated && h`<span class="ns-badge">Pre-populated from NetSuite</span>`}
+            ${isSwap && termsMode === 'inherit' && ad && ad.insuranceSurcharge != null && h`<span class="ns-badge">Inherited from #${ad.stockNo}</span>`}
+          </div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox"
+                 checked=${terms.insuranceSurchargeEnabled}
+                 onChange=${e => setField('insuranceSurchargeEnabled', e.target.checked)} />
+          <span class="slider"></span>
+        </label>
+      </div>
+      ${terms.insuranceSurchargeEnabled && h`<div style=${{marginTop:8, maxWidth:200}}>
+        <label class="field-label">Surcharge ($/period)</label>
+        <input type="number" value=${terms.insuranceSurchargeAmount}
+               onInput=${e => setField('insuranceSurchargeAmount', e.target.value === '' ? '' : Number(e.target.value))}
+               placeholder="0.00" />
+      </div>`}
+
+      <div class="grid-3" style=${{marginTop:18}}>
+        <div>
+          <label class="field-label">Payment start date *</label>
+          <input type="date" value=${terms.paymentStartDate}
+                 onInput=${e => setField('paymentStartDate', e.target.value)} />
+        </div>
+        ${showDeposit && h`<div>
+          <label class="field-label">Deposit ($) — refundable
+            ${isSwap && termsMode === 'inherit' && ad && ad.deposit ? h`<span class="ns-badge" style=${{marginLeft:6}}>Inherited</span>` : ''}
+          </label>
+          <input type="number" value=${terms.deposit}
+                 onInput=${e => setField('deposit', e.target.value === '' ? '' : Number(e.target.value))}
+                 placeholder="Optional" />
+        </div>`}
+        ${showFrequency && h`<div>
+          <label class="field-label">Payment frequency
+            ${isSwap && termsMode === 'inherit' && ad && ad.frequency ? h`<span class="ns-badge" style=${{marginLeft:6}}>Inherited</span>` : ''}
+          </label>
+          <select value=${terms.frequency} onChange=${e => setField('frequency', e.target.value)}>
+            <option value="Weekly">Weekly</option>
+            <option value="Monthly">Monthly</option>
+          </select>
+        </div>`}
+      </div>
+
+      <div class="form-actions">
+        <span class="help">${isSwap ? 'Edits override the inherited values — fields are always editable.'
+          : isRental ? 'Deposit is refundable at end of term — separate from cash down.'
+          : isFinance ? 'Frequency drives the payment schedule on the contract.'
+          : 'Most lease deals only need start date and (optional) insurance surcharge.'}</span>
+        <button class="btn primary" disabled=${!terms.paymentStartDate} onClick=${onConfirm}>Confirm terms & continue</button>
+      </div>
+    </div>`;
+  }
+
+  /* ---- Section 6: Submit (inline action row at the bottom) ---- */
+  function SubmitSection({ customer, location, subtype, offering, terms, isSwap, swap, submitData, setSubmitData, result, submitting, onSubmit, onDiscard }) {
+    const overrides = submitData.overrides;
+    const comment   = submitData.comment;
+    const setComment = v => setSubmitData(d => ({ ...d, comment: v }));
+    function set(field, value) { setSubmitData(d => ({ ...d, overrides: { ...d.overrides, [field]: value } })); }
+
+    if (result) {
+      return h`<${LifecycleView} result=${result} customer=${customer} offering=${offering} subtype=${subtype} />`;
+    }
+
+    const fmtDate = d => d ? new Date(d + 'T00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
+    const surchargeLabel = terms.insuranceSurchargeEnabled ? `$${terms.insuranceSurchargeAmount || 0}/period` : 'None';
+
+    return h`<div>
+      ${isSwap && customer.activeDeal && h`<div class="swap-inputs" style=${{marginTop:0, marginBottom:14}}>
+        <div class="swap-h">Swap of deal #${customer.activeDeal.stockNo}</div>
+        <div class="row-flex" style=${{flexWrap:'wrap', gap:14, fontSize:13}}>
+          <span><strong>Returning:</strong> ${customer.activeDeal.vehicle}</span>
+          <span><strong>Reason:</strong> ${swap.reason}</span>
+        </div>
+      </div>`}
+
+      <div class="summary-block">
+        <div><div class="field-label">Customer</div><div class="value">${customer.first} ${customer.last}</div><div class="sub">${customer.uw} · ${customer.tlc}</div></div>
+        <div><div class="field-label">Location</div><div class="value">${LOCATIONS.find(l => l.id === location)?.label}</div><div class="sub">${LOCATIONS.find(l => l.id === location)?.sub}</div></div>
+        <div><div class="field-label">Sales channel</div><div class="value">${subtype.name}${isSwap ? ' (swap)' : ''}</div><div class="sub">${subtype.desc}</div></div>
+        <div><div class="field-label">Vehicle</div><div class="value">${offering.year} ${offering.brand} ${offering.model}</div><div class="sub">${offering.bucketType}</div></div>
+        <div><div class="field-label">Stock # · plate</div><div class="value">${offering.stockNo}</div><div class="sub">${offering.plate} · ${offering.shortVin}</div></div>
+        <div><div class="field-label">Subsidiary</div><div class="value">${offering.subsidiary}</div></div>
+        <div><div class="field-label">Payment start</div><div class="value">${fmtDate(terms.paymentStartDate)}</div></div>
+        <div><div class="field-label">Insurance surcharge</div><div class="value">${surchargeLabel}</div></div>
+        <div><div class="field-label">${terms.frequency || offering.calcFreq} pmt · deposit</div><div class="value">${terms.deposit ? `$${Number(terms.deposit).toLocaleString()}` : '—'}</div></div>
+      </div>
+
+      <label class="field-label">Pricing overrides — package defaults shown as placeholders</label>
+      <div class="grid-2">
+        <div>
+          <label class="field-label">Regular payment ($/${(terms.frequency || offering.calcFreq).toLowerCase()})</label>
+          <input type="number" placeholder=${offering.regularPayment}
+            value=${overrides.regularPayment ?? ''}
+            onInput=${e => set('regularPayment', e.target.value === '' ? undefined : Number(e.target.value))} />
+        </div>
+        <div>
+          <label class="field-label">Cash down ($)</label>
+          <input type="number" placeholder=${offering.cashDown}
+            value=${overrides.cashDown ?? ''}
+            onInput=${e => set('cashDown', e.target.value === '' ? undefined : Number(e.target.value))} />
+        </div>
+      </div>
+
+      <div class="defaults-note">
+        <strong>Auto-filled from package:</strong>
+        # of payments <code>${offering.noOfPayments}</code>,
+        retail <code>$${offering.retailPrice.toLocaleString()}</code>,
+        partner <code>${offering.partner}</code>,
+        hybrid <code>${offering.hybrid ? 'Yes' : 'No'}</code>,
+        passtime <code>${offering.passtime ? 'Yes' : 'No'}</code>,
+        customer <code>${customer.customerId || '(create on save)'}</code>,
+        deal status <code>Manager Approval</code>.
+      </div>
+
+      <div class="mt-16">
+        <label class="field-label">Note to approver (optional)</label>
+        <textarea rows="2" value=${comment ?? ''} onChange=${e => setComment(e.target.value)} placeholder="e.g. customer requesting expedited start"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <span class="help">Once submitted, the manager will review and you'll see the deal lifecycle below.</span>
+        <div class="row-flex">
+          <button class="btn ghost" onClick=${onDiscard}>Discard</button>
+          <button class="btn primary" disabled=${submitting} onClick=${onSubmit}>
+            ${submitting ? 'Submitting…' : 'Submit for manager approval'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ---- Lifecycle (post-submit) ---- */
+  function Timeline({ stage, rejected }) {
+    // stage: 1..5  ('submitted','pending_mgr','approved','contract_payment','active')
+    // rejected: bool — pending_mgr step renders red, downstream stays pending
+    const steps = [
+      { n: 1, label: 'Submitted' },
+      { n: 2, label: 'Manager review' },
+      { n: 3, label: 'Approved' },
+      { n: 4, label: 'Contract & payment' },
+      { n: 5, label: 'Active' }
+    ];
+    return h`<div class="timeline">
+      ${steps.map((s, i) => {
+        let cls = 'tstep ';
+        if (rejected && s.n === 2)         cls += 'rejected';
+        else if (rejected && s.n > 2)      cls += '';   // pending
+        else if (s.n < stage)              cls += 'complete';
+        else if (s.n === stage)            cls += 'current';
+        return h`<${React.Fragment} key=${s.n}>
+          <div class=${cls}>
+            <div class="dot"><span class="n">${s.n}</span></div>
+            <div class="lbl">${s.label}</div>
+          </div>
+          ${i < steps.length - 1 && h`<div class=${'tline ' + (s.n < stage && !(rejected && s.n >= 2) ? 'complete' : '')}></div>`}
+        </>`;
+      })}
+    </div>`;
+  }
+
+  function LifecycleView({ result, customer, offering, subtype }) {
+    // submission state machine
+    const [submitState, setSubmitState] = useState('pending_approval'); // pending_approval | approved | rejected
+    const [rejectReason, setRejectReason] = useState('');
+    // sub-tasks once approved
+    const [contractState, setContractState] = useState('idle');         // idle | sent | signed
+    const [paymentState, setPaymentState]   = useState('idle');         // idle | method | collecting | received
+    const [paymentMethod, setPaymentMethod] = useState(null);           // 'in_person' | 'remote'
+    const [posCard, setPosCard]             = useState({ num:'', exp:'', cvv:'', zip:'' });
+    const [showPayload, setShowPayload]     = useState(false);
+
+    // computed top-level stage 1..5
+    const allDone = contractState === 'signed' && paymentState === 'received';
+    let stage = 1;
+    if (submitState === 'pending_approval') stage = 2;
+    else if (submitState === 'approved' && !allDone) stage = 4;
+    else if (submitState === 'approved' && allDone)  stage = 5;
+    const rejected = submitState === 'rejected';
+
+    // pricing
+    const total = (offering.regularPayment || 0) + (offering.cashDown || 0);
+
+    // ---- panels ----
+    function PendingPanel() {
+      return h`<div class="stage-panel is-pending">
+        <div class="title"><${Icon} name="clock" size=${16} style=${{marginRight:6}} /> Pending manager approval</div>
+        <div class="sub">Submitted to <strong>Wisleidis Cruz</strong> · usually responds in &lt;30 min · deal status set to <code>Manager Approval</code></div>
+        <div class="demo-controls">
+          <span class="lbl">Demo</span>
+          <button class="btn primary" onClick=${() => setSubmitState('approved')}>Approve as manager</button>
+          <button class="btn ghost" onClick=${() => setSubmitState('rejected')}>Reject as manager</button>
+        </div>
+      </div>`;
+    }
+
+    function RejectedPanel() {
+      return h`<div class="stage-panel is-warn">
+        <div class="title"><${Icon} name="x" size=${16} style=${{marginRight:6}} /> Deal rejected by manager</div>
+        <div class="sub">Reason: <em>${rejectReason || 'Pricing outside policy — please review and resubmit'}</em></div>
+        <div class="demo-controls">
+          <span class="lbl">Demo</span>
+          <button class="btn ghost" onClick=${() => { setSubmitState('pending_approval'); }}>Resubmit</button>
+        </div>
+      </div>`;
+    }
+
+    function ContractCard() {
+      const cls = 'task-card ' + (contractState === 'signed' ? 'done' : (contractState === 'sent' ? 'in-progress' : ''));
+      return h`<div class=${cls}>
+        <div class="task-head">
+          <div class="task-title"><${Icon} name="document" size=${16} /> Contract</div>
+          <div class=${'task-status ' + (contractState === 'signed' ? 'done' : contractState === 'sent' ? 'active' : '')}>
+            ${contractState === 'idle' ? 'Not sent' : contractState === 'sent' ? 'Awaiting signature' : 'Signed'}
+          </div>
+        </div>
+        <div class="task-body">
+          ${contractState === 'idle' && h`<span>Send contract to <strong>${customer.email}</strong> via Adobe Sign for e-signature.</span>`}
+          ${contractState === 'sent' && h`<span>Contract sent — customer will receive an email and can sign on any device.</span>`}
+          ${contractState === 'signed' && h`<span>Contract signed by ${customer.first} ${customer.last} · all parties countersigned.</span>`}
+        </div>
+        <div>
+          ${contractState === 'idle' && h`<button class="btn primary" onClick=${() => setContractState('sent')}>Send for e-signature</button>`}
+          ${contractState === 'sent' && h`<div class="demo-controls" style=${{margin:0}}>
+            <span class="lbl">Demo</span>
+            <button class="btn subtle" onClick=${() => setContractState('signed')}>Mark as signed</button>
+          </div>`}
+        </div>
+      </div>`;
+    }
+
+    function PaymentCard() {
+      const cls = 'task-card ' + (paymentState === 'received' ? 'done' : (paymentState === 'idle' ? '' : 'in-progress'));
+      return h`<div class=${cls}>
+        <div class="task-head">
+          <div class="task-title"><${Icon} name="card" size=${16} /> Customer payment</div>
+          <div class=${'task-status ' + (paymentState === 'received' ? 'done' : paymentState !== 'idle' ? 'active' : '')}>
+            ${paymentState === 'idle' ? 'Not started' : paymentState === 'method' ? 'Choose method' : paymentState === 'collecting' ? (paymentMethod === 'in_person' ? 'Collecting at counter' : 'Awaiting customer') : 'Received'}
+          </div>
+        </div>
+        <div class="task-body">
+          ${paymentState === 'idle' && h`<span>Collect <strong>$${total.toLocaleString()}</strong> (${offering.calcFreq.toLowerCase()} payment + cash down) before delivery.</span>`}
+
+          ${paymentState === 'method' && h`<div class="radio-group">
+            <div class=${'radio-card ' + (paymentMethod === 'in_person' ? 'active' : '')}
+                 onClick=${() => setPaymentMethod('in_person')}>
+              <div class="radio"></div>
+              <div class="rl">
+                <div class="rl-label">Take payment in person</div>
+                <div class="rl-desc">Open the agent POS portal and enter the customer's card here at the counter.</div>
+              </div>
+            </div>
+            <div class=${'radio-card ' + (paymentMethod === 'remote' ? 'active' : '')}
+                 onClick=${() => setPaymentMethod('remote')}>
+              <div class="radio"></div>
+              <div class="rl">
+                <div class="rl-label">Send link to customer's phone</div>
+                <div class="rl-desc">Customer receives an SMS with a secure payment link · completes from their phone.</div>
+              </div>
+            </div>
+          </div>`}
+
+          ${paymentState === 'collecting' && paymentMethod === 'in_person' && h`<div class="pos-card">
+            <div class="pos-h">
+              <div class="pos-title">Agent POS</div>
+              <span class="task-status active">Live</span>
+            </div>
+            <label class="field-label">Card number</label>
+            <input value=${posCard.num} onInput=${e => setPosCard({...posCard, num:e.target.value})} placeholder="•••• •••• •••• 4242" />
+            <div class="grid-3" style=${{marginTop:8}}>
+              <div><label class="field-label">Expiry</label><input value=${posCard.exp} onInput=${e => setPosCard({...posCard, exp:e.target.value})} placeholder="MM/YY" /></div>
+              <div><label class="field-label">CVV</label><input value=${posCard.cvv} onInput=${e => setPosCard({...posCard, cvv:e.target.value})} placeholder="123" /></div>
+              <div><label class="field-label">Billing zip</label><input value=${posCard.zip} onInput=${e => setPosCard({...posCard, zip:e.target.value})} placeholder="11101" /></div>
+            </div>
+            <div class="pos-pay">
+              <div><div class="text-faint">Charging</div><div class="pos-amount">$${total.toLocaleString()}</div></div>
+              <button class="btn primary" onClick=${() => setPaymentState('received')}>Charge card</button>
+            </div>
+          </div>`}
+
+          ${paymentState === 'collecting' && paymentMethod === 'remote' && h`<div class="sms-card">
+            <div class="phone-icon"><${Icon} name="phone" size=${22} /></div>
+            <div>SMS sent to</div>
+            <div class="phone-num">${customer.phone}</div>
+            <div class="meta">Customer will receive a secure link · completes payment in &lt; 60 seconds typical</div>
+            <div class="demo-controls" style=${{justifyContent:'center', marginTop:14}}>
+              <span class="lbl">Demo</span>
+              <button class="btn subtle" onClick=${() => setPaymentState('received')}>Mark as paid</button>
+            </div>
+          </div>`}
+
+          ${paymentState === 'received' && h`<span>Payment of <strong>$${total.toLocaleString()}</strong> received via ${paymentMethod === 'in_person' ? 'in-person card' : 'remote payment link'}.</span>`}
+        </div>
+        ${paymentState === 'idle' && h`<button class="btn primary" onClick=${() => setPaymentState('method')}>Start payment</button>`}
+        ${paymentState === 'method' && h`<button class="btn primary" disabled=${!paymentMethod} onClick=${() => setPaymentState('collecting')}>Continue</button>`}
+      </div>`;
+    }
+
+    function ApprovedPanel() {
+      return h`<div>
+        <div class="stage-panel is-success">
+          <div class="title">✓ Deal confirmed</div>
+          <div class="sub">Approved by Wisleidis Cruz · Stock <strong>${result.stockNo}</strong> ready for delivery once contract and payment are complete.</div>
+        </div>
+        <div class="tasks">
+          <${ContractCard} />
+          <${PaymentCard} />
+        </div>
+      </div>`;
+    }
+
+    function ActivePanel() {
+      return h`<div>
+        <div class="stage-panel is-success">
+          <div class="title"><${Icon} name="truck" size=${18} style=${{marginRight:6}} /> Deal active</div>
+          <div class="sub">Contract signed · payment received · vehicle ${offering.shortVin} ready for handover.</div>
+        </div>
+        <div class="defaults-note">
+          <strong>Final state:</strong> Stock <code>${result.stockNo}</code>,
+          deal status <code>Active</code>,
+          contract <code>Signed</code>,
+          payment <code>Received</code>,
+          subsidiary <code>${offering.subsidiary}</code>.
+        </div>
+        <div class="mt-16" style=${{display:'flex', gap:8}}>
+          <button class="btn ghost" onClick=${() => setShowPayload(s => !s)}>${showPayload ? 'Hide' : 'Show'} Stock payload</button>
+          <button class="btn primary" onClick=${() => window.location.reload()}>Create another deal</button>
+        </div>
+        ${showPayload && h`<div class="payload-pre">${JSON.stringify(result.fields, null, 2)}</div>`}
+      </div>`;
+    }
+
+    return h`<div>
+      <${Timeline} stage=${stage} rejected=${rejected} />
+      ${submitState === 'pending_approval' && PendingPanel()}
+      ${submitState === 'rejected'         && RejectedPanel()}
+      ${submitState === 'approved'         && stage < 5 && ApprovedPanel()}
+      ${submitState === 'approved'         && stage === 5 && ActivePanel()}
+    </div>`;
+  }
+
+  /* ---- App ---- */
+  function App() {
+    const tomorrow = new Date(Date.now()+86400000).toISOString().slice(0,10);
+
+    const [customer, setCustomer] = useState(null);
+    const [location, setLocation] = useState(null);
+    const [parentType, setParentType] = useState(null);   // 'lease' | 'finance' | 'rental' | 'other'
+    const [subtype, setSubtype]       = useState(null);
+    const [offering, setOffering]     = useState(null);
+
+    // Swap-mode lives at the customer step now: { decision: null|'yes'|'no', reason: '', confirmed: bool }
+    // confirmed gates section 1 advancement so the textarea isn't unmounted mid-keystroke.
+    const [swap, setSwap] = useState({ decision: null, reason: '', confirmed: false });
+    const isSwap = swap.decision === 'yes' && swap.confirmed;
+
+    // Deal terms
+    const [terms, setTerms] = useState({
+      insuranceSurchargeEnabled: false,
+      insuranceSurchargeAmount: '',
+      paymentStartDate: tomorrow,
+      deposit: '',
+      frequency: 'Weekly',
+      confirmed: false
+    });
+    const [termsMode, setTermsMode] = useState('new');    // 'inherit' | 'new' (only matters in swap)
+
+    // Submit state
+    const [submitData, setSubmitData] = useState({ overrides: {}, comment: '' });
+    const [submitting, setSubmitting] = useState(false);
+    const [result, setResult]         = useState(null);
+
+    // ---- Effects: reset / pre-populate downstream when upstream changes ----
+
+    // Customer change → reset everything below it; pre-populate insurance from customer profile.
+    useEffect(() => {
+      setLocation(null);
+      setParentType(null); setSubtype(null);
+      setOffering(null);
+      setSwap({ decision: null, reason: '', confirmed: false });
+      setTermsMode('new');
+      if (customer) {
+        setTerms(t => ({
+          ...t,
+          insuranceSurchargeEnabled: customer.insuranceSurcharge != null,
+          insuranceSurchargeAmount:  customer.insuranceSurcharge ?? '',
+          deposit: '',
+          frequency: 'Weekly',
+          confirmed: false
+        }));
+      }
+    }, [customer && customer.id]);
+
+    // Once the swap decision is *confirmed*, default termsMode based on yes/no.
+    // (We only react after confirmation so the user can change their mind freely beforehand.)
+    useEffect(() => {
+      if (!swap.confirmed) return;
+      if (swap.decision === 'yes') setTermsMode('inherit');
+      if (swap.decision === 'no')  setTermsMode('new');
+    }, [swap.confirmed, swap.decision]);
+
+    // When termsMode flips, mutate the form fields accordingly.
+    useEffect(() => {
+      if (!customer) return;
+      if (termsMode === 'inherit' && customer.activeDeal) {
+        const ad = customer.activeDeal;
+        setTerms(t => ({
+          ...t,
+          insuranceSurchargeEnabled: ad.insuranceSurcharge != null,
+          insuranceSurchargeAmount:  ad.insuranceSurcharge ?? '',
+          deposit:                   ad.deposit ?? '',
+          frequency:                 ad.frequency || 'Weekly',
+          confirmed: false
+        }));
+      } else if (termsMode === 'new') {
+        setTerms(t => ({
+          ...t,
+          insuranceSurchargeEnabled: customer.insuranceSurcharge != null,
+          insuranceSurchargeAmount:  customer.insuranceSurcharge ?? '',
+          deposit: '',
+          frequency: 'Weekly',
+          confirmed: false
+        }));
+      }
+    }, [termsMode, customer && customer.id]);
+
+    useEffect(() => { setParentType(null); setSubtype(null); }, [location]);
+    useEffect(() => { setSubtype(null); }, [parentType]);
+    useEffect(() => { setTerms(t => ({ ...t, confirmed: false })); }, [subtype && subtype.id]);
+    useEffect(() => { setOffering(null); }, [subtype && subtype.id, location]);
+
+    async function handleSubmit() {
+      if (!customer || !subtype || !offering || !terms.confirmed) return;
+      setSubmitting(true);
+      const r = await api.createDeal({
+        customerId: customer.id, subtypeId: subtype.id, offeringId: offering.id,
+        startDate: terms.paymentStartDate,
+        overrides: { ...submitData.overrides,
+          insuranceSurcharge: terms.insuranceSurchargeEnabled ? Number(terms.insuranceSurchargeAmount) || 0 : 0,
+          deposit:            terms.deposit !== '' ? Number(terms.deposit) : 0,
+          frequency:          terms.frequency,
+          isSwap:             isSwap,
+          swapOf:             isSwap && customer.activeDeal ? customer.activeDeal.stockNo : null,
+          swapReason:         isSwap ? swap.reason : null
+        },
+        comment: submitData.comment
+      });
+      setResult(r); setSubmitting(false);
+    }
+
+    // Section 1 is "complete" only when swap decision is explicitly confirmed
+    // (if customer has an active deal). Otherwise the section auto-completes on customer pick.
+    const customerSectionDone = !!customer && (
+      !(customer.activeDeal && customer.activeDeal.stockNo) ||
+      swap.confirmed
+    );
+
+    let active = 1;
+    if (!customerSectionDone) active = 1;
+    else if (!location) active = 2;
+    else if (!subtype) active = 3;
+    else if (!terms.confirmed) active = 4;
+    else if (!offering) active = 5;
+    else active = 6;
+
+    function stateFor(stepN) {
+      if (stepN === active) return 'active';
+      if (stepN < active) return 'complete';
+      return 'pending';
+    }
+
+    function pickSubtype(parentId, subId) {
+      setParentType(parentId);
+      if (subId) {
+        const p = DEAL_TYPES.find(x => x.id === parentId);
+        const s = p.subtypes.find(x => x.id === subId);
+        setSubtype(s);
+      } else {
+        setSubtype(null);
+      }
+    }
+
+    // ---- Render ----
+    const repName     = customer ? customer.salesRep : 'Sales Rep';
+    const repInitials = repName.split(' ').filter(Boolean).map(w => w[0].toUpperCase()).slice(0, 2).join('');
+
+    const customerChip = customer && h`<span>
+      <strong>${customer.first} ${customer.last}</strong> · ${customer.dl}
+      <span class=${'badge ' + uwBadgeKind(customer.uw)} style=${{marginLeft:4}}>${customer.uw}</span>
+      ${swap.decision === 'yes' && customer.activeDeal && h`<span class="qd-pill" style=${{marginLeft:6, background:'var(--accent-purple-soft)', color:'var(--accent-purple)'}}>Swap of #${customer.activeDeal.stockNo}</span>`}
+      ${swap.decision === 'no'  && customer.activeDeal && h`<span class="qd-pill" style=${{marginLeft:6}}>New deal · existing #${customer.activeDeal.stockNo} stays</span>`}
+    </span>`;
+
+    return h`<div>
+      <div class="app-bar">
+        <div class="brand">
+          <div class="mark">QD</div>
+          QuickDeal
+        </div>
+        <div class="crumbs">Sales · <strong>New deal</strong></div>
+        <div class="user">
+          <div class="avatar">${repInitials}</div>
+          <span class="username">${repName}</span>
+        </div>
+      </div>
+
+      <div class="shell">
+        <div class="page-h">
+          <h1>New deal</h1>
+          <span class="demo-tag">Prototype · v3.13</span>
+        </div>
+        <div class="page-sub">Synthetic data shaped after Tower's real distributions. Submit shows the JSON payload — nothing leaves this page.</div>
+
+        <div class="stack">
+          <${Section} n=${1} title="Customer"
+            sub="Pick an eligible pre-lead or existing customer"
+            state=${stateFor(1)}
+            summary=${customerSectionDone && customerChip}
+            onEdit=${() => setCustomer(null)}>
+            <${CustomerSection}
+              value=${customer}
+              onPick=${setCustomer}
+              swap=${swap} setSwap=${setSwap}
+              onClear=${() => setCustomer(null)} />
+          </>
+
+          <${Section} n=${2} title="Location"
+            sub="Where is the deal being created"
+            state=${stateFor(2)}
+            summary=${location && h`<strong>${LOCATIONS.find(l => l.id === location)?.label}</strong>`}
+            onEdit=${() => setLocation(null)}>
+            <${LocationSection} value=${location} onPick=${setLocation} />
+          </>
+
+          <${Section} n=${3} title="Deal type"
+            sub="Category and sub-type — only those available at this location"
+            state=${stateFor(3)}
+            summary=${subtype && h`<strong>${subtype.name}</strong> · ${subtype.desc}`}
+            onEdit=${() => { setSubtype(null); setParentType(null); }}>
+            <${DealTypeSection}
+              location=${location}
+              value=${parentType}
+              subValue=${subtype && subtype.id}
+              onPick=${pickSubtype} />
+          </>
+
+          <${Section} n=${4} title="Deal terms"
+            sub="Insurance surcharge, payment start, deposit / frequency"
+            state=${stateFor(4)}
+            summary=${terms.confirmed && h`<span><strong>Start ${new Date(terms.paymentStartDate+'T00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</strong>${terms.insuranceSurchargeEnabled ? ` · surcharge $${terms.insuranceSurchargeAmount || 0}` : ''}${terms.deposit ? ` · deposit $${Number(terms.deposit).toLocaleString()}` : ''}${terms.frequency !== 'Weekly' ? ` · ${terms.frequency}` : ''}${isSwap ? ` · ${termsMode === 'inherit' ? 'inherited' : 'new terms'}` : ''}</span>`}
+            onEdit=${() => setTerms(t => ({ ...t, confirmed: false }))}>
+            <${DealTermsSection}
+              customer=${customer} subtype=${subtype}
+              terms=${terms} setTerms=${setTerms}
+              isSwap=${isSwap} termsMode=${termsMode} setTermsMode=${setTermsMode}
+              onConfirm=${() => setTerms(t => ({ ...t, confirmed: true }))} />
+          </>
+
+          <${Section} n=${5} title="Vehicle"
+            sub="Available offerings filtered by your selections"
+            state=${stateFor(5)}
+            summary=${offering && h`<strong>${offering.year} ${offering.brand} ${offering.model}</strong> · ${offering.bucketType} · $${offering.regularPayment.toLocaleString()}/${offering.calcFreq.toLowerCase()}`}
+            onEdit=${() => setOffering(null)}>
+            <${VehicleSection}
+              subtypeId=${subtype && subtype.id}
+              location=${location} value=${offering} onPick=${setOffering} />
+          </>
+
+          <${Section} n=${6} title="Review & submit"
+            sub="Confirm details and send to manager"
+            state=${stateFor(6)}
+            summary=${null}>
+            <${SubmitSection}
+              customer=${customer} location=${location} subtype=${subtype} offering=${offering}
+              terms=${terms}
+              isSwap=${isSwap} swap=${swap}
+              submitData=${submitData} setSubmitData=${setSubmitData}
+              result=${result} submitting=${submitting}
+              onSubmit=${handleSubmit}
+              onDiscard=${() => window.location.reload()} />
+          </>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  ReactDOM.createRoot(document.getElementById('qd-root')).render(h`<${App} />`);
+  </script>
+</body>
+</html>
